@@ -155,6 +155,11 @@ members = [
     "testing/testing-utils",
     "testing/runner",
     "crates/tracing-otlp",
+    "crates/telos/bin/",
+    "crates/telos/node/",
+    "crates/telos/primitives-traits/",
+    "crates/telos/rpc/",
+    "crates/telos/rpc-engine-api/",
 ]
 default-members = ["bin/reth"]
 exclude = ["docs/cli"]
@@ -316,6 +321,9 @@ inherits = "release"
 panic = "abort"
 codegen-units = 1
 incremental = false
+
+[workspace.metadata]
+telos = true
 
 [workspace.dependencies]
 # reth

@@ -1,5 +1,6 @@
 //! Telos node implementation
 
+use crate::engine::TelosEngineValidator;
 use std::sync::Arc;
 
 use reth_chainspec::{ChainSpec, EthereumHardforks, Hardforks};
@@ -9,10 +10,13 @@ use reth_ethereum_engine_primitives::{
 use reth_ethereum_primitives::EthPrimitives;
 use reth_evm::{ConfigureEvm, EvmFactory, EvmFactoryFor, NextBlockEnvAttributes};
 use reth_node_api::{FullNodeComponents, HeaderTy, PrimitivesTy};
+use alloy_rpc_types_engine::ExecutionData as EngineExecutionData;
+use reth_engine_primitives::EngineTypes;
+use reth_node_api::AddOnsContext;
 use reth_node_builder::{
     components::{BasicPayloadServiceBuilder, ComponentsBuilder},
     node::FullNodeTypes,
-    rpc::{BasicEngineApiBuilder, BasicEngineValidatorBuilder, EthApiBuilder, EthApiCtx, RpcAddOns},
+    rpc::{BasicEngineApiBuilder, BasicEngineValidatorBuilder, EthApiBuilder, EthApiCtx, PayloadValidatorBuilder, RpcAddOns},
     Node, NodeAdapter,
 };
 use reth_node_ethereum::node::{
@@ -105,6 +109,29 @@ where
     }
 }
 
+/// Telos engine validator builder - uses TelosEngineValidator which trusts
+/// the block_hash from the consensus client instead of recomputing it.
+/// This is needed for compatibility with the legacy Telos consensus client (alloy 0.3.x).
+#[derive(Debug, Clone, Default)]
+pub struct TelosEngineValidatorBuilder;
+
+impl<Node, Types> PayloadValidatorBuilder<Node> for TelosEngineValidatorBuilder
+where
+    Types: NodeTypes<
+        ChainSpec: reth_chainspec::Hardforks + reth_chainspec::EthereumHardforks + Clone + 'static,
+        Payload: EngineTypes<ExecutionData = EngineExecutionData>
+                     + PayloadTypes<PayloadAttributes = EthPayloadAttributes>,
+        Primitives = reth_ethereum_primitives::EthPrimitives,
+    >,
+    Node: FullNodeComponents<Types = Types>,
+{
+    type Validator = TelosEngineValidator<Types::ChainSpec>;
+
+    async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
+        Ok(TelosEngineValidator::new(ctx.config.chain.clone()))
+    }
+}
+
 impl<N> Node<N> for TelosNode
 where
     N: FullNodeTypes<Types = Self>,
@@ -119,7 +146,7 @@ where
     >;
 
     type AddOns =
-        EthereumAddOns<NodeAdapter<N>, TelosEthApiBuilder, EthereumEngineValidatorBuilder>;
+        EthereumAddOns<NodeAdapter<N>, TelosEthApiBuilder, TelosEngineValidatorBuilder>;
 
     fn components_builder(&self) -> Self::ComponentsBuilder {
         Self::components()
@@ -128,7 +155,7 @@ where
     fn add_ons(&self) -> Self::AddOns {
         EthereumAddOns::new(RpcAddOns::new(
             TelosEthApiBuilder,
-            EthereumEngineValidatorBuilder::default(),
+            TelosEngineValidatorBuilder::default(),
             BasicEngineApiBuilder::default(),
             BasicEngineValidatorBuilder::default(),
             Default::default(),

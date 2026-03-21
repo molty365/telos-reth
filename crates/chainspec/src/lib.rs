@@ -34,6 +34,8 @@ pub use spec::{
     blob_params_to_schedule, create_chain_config, mainnet_chain_config, make_genesis_header,
     BaseFeeParams, BaseFeeParamsKind, ChainSpec, ChainSpecBuilder, ChainSpecProvider,
     DepositContract, ForkBaseFeeParams, DEV, HOLESKY, HOODI, MAINNET, SEPOLIA,
+    TEVMMAINNET, TEVMMAINNET_BASE, TEVMMAINNET_BASE_GENESIS_HASH, TEVMMAINNET_GENESIS_HASH,
+    TEVMTESTNET, TEVMTESTNET_BASE, TEVMTESTNET_BASE_GENESIS_HASH, TEVMTESTNET_GENESIS_HASH,
 };
 
 use reth_primitives_traits::sync::OnceLock;

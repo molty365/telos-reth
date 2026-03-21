@@ -246,6 +246,148 @@ pub static DEV: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
     .into()
 });
 
+/// Telos EVM Mainnet genesis hash.
+pub const TEVMMAINNET_GENESIS_HASH: B256 =
+    b256!("36fe7024b760365e3970b7b403e161811c1e626edd68460272fcdfa276272563");
+
+/// Telos EVM Testnet genesis hash.
+pub const TEVMTESTNET_GENESIS_HASH: B256 =
+    b256!("b25034033c9ca7a40e879ddcc29cf69071a22df06688b5fe8cc2d68b4e0528f9");
+
+/// Telos EVM Mainnet base genesis hash.
+pub const TEVMMAINNET_BASE_GENESIS_HASH: B256 =
+    b256!("757720a8e51c63ef1d4f907d6569dacaa965e91c2661345902de18af11f81063");
+
+/// Telos EVM Testnet base genesis hash.
+pub const TEVMTESTNET_BASE_GENESIS_HASH: B256 =
+    b256!("a6da3143bdeab454a923ac47589700ebe75d734f26e1f9201caa9b7268045d02");
+
+/// The Telos EVM Mainnet spec
+pub static TEVMMAINNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/tevmmainnet.json"))
+        .expect("Can't deserialize Tevmmainnet genesis json");
+    let hardforks: ChainHardforks = [
+        (EthereumHardfork::Frontier, ForkCondition::Block(0)),
+        (EthereumHardfork::Homestead, ForkCondition::Block(0)),
+        (EthereumHardfork::Dao, ForkCondition::Block(0)),
+        (EthereumHardfork::Tangerine, ForkCondition::Block(0)),
+        (EthereumHardfork::SpuriousDragon, ForkCondition::Block(0)),
+        (EthereumHardfork::Byzantium, ForkCondition::Block(0)),
+        (EthereumHardfork::Constantinople, ForkCondition::Block(0)),
+        (EthereumHardfork::Petersburg, ForkCondition::Block(0)),
+        (EthereumHardfork::Istanbul, ForkCondition::Block(0)),
+        (EthereumHardfork::MuirGlacier, ForkCondition::Block(0)),
+        (EthereumHardfork::Berlin, ForkCondition::Block(0)),
+    ]
+    .into();
+    ChainSpec {
+        chain: Chain::from_id(40),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            TEVMMAINNET_GENESIS_HASH,
+        ),
+        genesis,
+        hardforks,
+        ..Default::default()
+    }
+    .into()
+});
+
+/// The Telos EVM Testnet spec
+pub static TEVMTESTNET: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis: Genesis = serde_json::from_str(include_str!("../res/genesis/tevmtestnet.json"))
+        .expect("Can't deserialize Tevmtestnet genesis json");
+    let hardforks: ChainHardforks = [
+        (EthereumHardfork::Frontier, ForkCondition::Block(0)),
+        (EthereumHardfork::Homestead, ForkCondition::Block(0)),
+        (EthereumHardfork::Dao, ForkCondition::Block(0)),
+        (EthereumHardfork::Tangerine, ForkCondition::Block(0)),
+        (EthereumHardfork::SpuriousDragon, ForkCondition::Block(0)),
+        (EthereumHardfork::Byzantium, ForkCondition::Block(0)),
+        (EthereumHardfork::Constantinople, ForkCondition::Block(0)),
+        (EthereumHardfork::Petersburg, ForkCondition::Block(0)),
+        (EthereumHardfork::Istanbul, ForkCondition::Block(0)),
+        (EthereumHardfork::MuirGlacier, ForkCondition::Block(0)),
+        (EthereumHardfork::Berlin, ForkCondition::Block(0)),
+    ]
+    .into();
+    ChainSpec {
+        chain: Chain::from_id(41),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            TEVMTESTNET_GENESIS_HASH,
+        ),
+        genesis,
+        hardforks,
+        ..Default::default()
+    }
+    .into()
+});
+
+/// The Telos EVM Mainnet base spec (for syncing from a later block)
+pub static TEVMMAINNET_BASE: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis: Genesis =
+        serde_json::from_str(include_str!("../res/genesis/tevmmainnet_base.json"))
+            .expect("Can't deserialize Tevmmainnet-base genesis json");
+    let hardforks: ChainHardforks = [
+        (EthereumHardfork::Frontier, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Homestead, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Dao, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Tangerine, ForkCondition::Block(180698823)),
+        (EthereumHardfork::SpuriousDragon, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Byzantium, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Constantinople, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Petersburg, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Istanbul, ForkCondition::Block(180698823)),
+        (EthereumHardfork::MuirGlacier, ForkCondition::Block(180698823)),
+        (EthereumHardfork::Berlin, ForkCondition::Block(180698823)),
+    ]
+    .into();
+    ChainSpec {
+        chain: Chain::from_id(40),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            TEVMMAINNET_BASE_GENESIS_HASH,
+        ),
+        genesis,
+        hardforks,
+        ..Default::default()
+    }
+    .into()
+});
+
+/// The Telos EVM Testnet base spec (for syncing from a later block)
+pub static TEVMTESTNET_BASE: LazyLock<Arc<ChainSpec>> = LazyLock::new(|| {
+    let genesis: Genesis =
+        serde_json::from_str(include_str!("../res/genesis/tevmtestnet_base.json"))
+            .expect("Can't deserialize Tevmtestnet-base genesis json");
+    let hardforks: ChainHardforks = [
+        (EthereumHardfork::Frontier, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Homestead, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Dao, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Tangerine, ForkCondition::Block(136393756)),
+        (EthereumHardfork::SpuriousDragon, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Byzantium, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Constantinople, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Petersburg, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Istanbul, ForkCondition::Block(136393756)),
+        (EthereumHardfork::MuirGlacier, ForkCondition::Block(136393756)),
+        (EthereumHardfork::Berlin, ForkCondition::Block(136393756)),
+    ]
+    .into();
+    ChainSpec {
+        chain: Chain::from_id(41),
+        genesis_header: SealedHeader::new(
+            make_genesis_header(&genesis, &hardforks),
+            TEVMTESTNET_BASE_GENESIS_HASH,
+        ),
+        genesis,
+        hardforks,
+        ..Default::default()
+    }
+    .into()
+});
+
 /// Creates a [`ChainConfig`] from the given chain, hardforks, deposit contract address, and blob
 /// schedule.
 pub fn create_chain_config(

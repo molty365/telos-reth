@@ -18,7 +18,7 @@ use reth_provider::{DatabaseProviderFactory, StateProviderFactory};
 use reth_db::{PlainAccountState, PlainStorageState};
 
 
-#[cfg(feature = "telos")]
+
 fn main() {
     use reth_provider::BlockNumReader;
 

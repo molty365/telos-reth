@@ -16,7 +16,7 @@ alloy-rpc-types.workspace = true
 parking_lot = "0.12.3"
 jsonrpsee-types.workspace = true
 reth-chainspec.workspace = true
-reth-evm = { workspace = true, features = ["telos"] }
+reth-evm.workspace = true
 reth-network-api.workspace = true
 reth-node-api.workspace = true
 reth-node-builder.workspace = true

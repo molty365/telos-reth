@@ -7,7 +7,7 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#![cfg(feature = "telos")]
+
 
 pub mod args;
 pub mod node;

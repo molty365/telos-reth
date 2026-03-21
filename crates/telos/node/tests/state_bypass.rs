@@ -102,9 +102,6 @@ async fn test_integration_tevm_only() {
         signer_permission: Some("active".to_string()),
         signer_key: Some("5Jr65kdYmn33C3UabzhmWDm2PuqbRfPuDStts3ZFNSBLM7TqaiL".to_string()),
         gas_cache_seconds: None,
-        experimental: false,
-        persistence_threshold: 0,
-        memory_block_buffer_target: 0,
         max_execute_block_batch_size: 0,
     };
 

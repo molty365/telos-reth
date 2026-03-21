@@ -16,6 +16,4 @@ pub mod two_way_storage_compare;
 pub use crate::args::TelosArgs;
 pub use crate::node::TelosNode;
 
-const DEFAULT_PERSISTENCE_THRESHOLD: u64 = 16;
-const DEFAULT_MEMORY_BLOCK_BUFFER_TARGET: u64 = 16;
 const DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE: usize = 50;

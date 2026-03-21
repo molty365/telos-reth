@@ -1,7 +1,7 @@
 //! clap [Args](clap::Args) for telos configuration
 
 use reth_telos_rpc::eth::telos_client::TelosClientArgs;
-use crate::{DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE, DEFAULT_MEMORY_BLOCK_BUFFER_TARGET, DEFAULT_PERSISTENCE_THRESHOLD};
+use crate::DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, clap::Args)]
 #[clap(next_help_heading = "Telos")]
@@ -26,18 +26,6 @@ pub struct TelosArgs {
     /// Seconds to cache gas price
     #[arg(long = "telos.gas_cache_seconds")]
     pub gas_cache_seconds: Option<u32>,
-
-    /// Enable the engine2 experimental features on telos-reth binary
-    #[arg(long = "engine.experimental", default_value = "false")]
-    pub experimental: bool,
-
-    /// Configure persistence threshold for engine experimental.
-    #[arg(long = "engine.persistence-threshold", default_value_t = DEFAULT_PERSISTENCE_THRESHOLD)]
-    pub persistence_threshold: u64,
-
-    /// Configure the target number of blocks to keep in memory.
-    #[arg(long = "engine.memory-block-buffer-target", default_value_t = DEFAULT_MEMORY_BLOCK_BUFFER_TARGET)]
-    pub memory_block_buffer_target: u64,
 
     /// Maximum number of blocks to execute sequentially in a batch.
     ///

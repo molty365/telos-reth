@@ -34,9 +34,7 @@ fn main() {
         let block_delta = telos_args.block_delta.clone();
 
         let engine_tree_config = TreeConfig::default()
-            .with_persistence_threshold(telos_args.persistence_threshold)
-            .with_max_execute_block_batch_size(telos_args.max_execute_block_batch_size)
-            .with_memory_block_buffer_target(telos_args.memory_block_buffer_target);
+            .with_max_execute_block_batch_size(telos_args.max_execute_block_batch_size);
 
         let handle = builder
             .node(TelosNode::new(telos_args.clone()))

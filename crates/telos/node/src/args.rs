@@ -32,18 +32,18 @@ pub struct TelosArgs {
     pub experimental: bool,
 
     /// Configure persistence threshold for engine experimental.
-    #[arg(long = "engine.persistence-threshold", requires = "experimental", default_value_t = DEFAULT_PERSISTENCE_THRESHOLD)]
+    #[arg(long = "engine.persistence-threshold", default_value_t = DEFAULT_PERSISTENCE_THRESHOLD)]
     pub persistence_threshold: u64,
 
     /// Configure the target number of blocks to keep in memory.
-    #[arg(long = "engine.memory-block-buffer-target", requires = "experimental", default_value_t = DEFAULT_MEMORY_BLOCK_BUFFER_TARGET)]
+    #[arg(long = "engine.memory-block-buffer-target", default_value_t = DEFAULT_MEMORY_BLOCK_BUFFER_TARGET)]
     pub memory_block_buffer_target: u64,
 
     /// Maximum number of blocks to execute sequentially in a batch.
     ///
     /// This is used as a cutoff to prevent long-running sequential block execution when we receive
     /// a batch of downloaded blocks.
-    #[arg(long = "engine.max-execute-block-batch-size", requires = "experimental", default_value_t = DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE)]
+    #[arg(long = "engine.max-execute-block-batch-size", default_value_t = DEFAULT_MAX_EXECUTE_BLOCK_BATCH_SIZE)]
     pub max_execute_block_batch_size: usize,
 
     /// Enable Two-way storage compare between reth and telos

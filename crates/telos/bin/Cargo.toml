@@ -17,7 +17,9 @@ reth-provider.workspace = true
 reth-node-telos.workspace = true
 reth-telos-rpc.workspace = true
 reth-db.workspace = true
+alloy-eips.workspace = true
 alloy-primitives.workspace = true
+reth-engine-tree.workspace = true
 
 
 clap = { workspace = true, features = ["derive", "env"] }

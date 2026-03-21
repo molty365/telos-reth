@@ -10,7 +10,8 @@ use antelope::{name, StructPacker};
 use antelope::chain::checksum::{Checksum160, Checksum256};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-use reth::primitives::{Account, BlockId};
+use alloy_eips::BlockId;
+use reth::primitives::Account;
 use reth_db::common::KeyValue;
 use reth::providers::StateProviderBox;
 use reth_db::{PlainAccountState, PlainStorageState};
@@ -126,7 +127,7 @@ pub async fn two_side_state_compare(
     let mut match_counter = MatchCounter::new();
 
     for (address, telos_account) in &account_table {
-        let account_at_specific_height = state_at_specific_height.basic_account(*address);
+        let account_at_specific_height = state_at_specific_height.basic_account(address);
         match account_at_specific_height {
             Ok(reth_account) => {
                 match reth_account {
@@ -191,7 +192,7 @@ pub async fn two_side_state_compare(
 
 
     for (address, _) in plain_account_state.iter() {
-        let account_at_specific_height = state_at_specific_height.basic_account(*address);
+        let account_at_specific_height = state_at_specific_height.basic_account(address);
         let telos_account = account_table.get(address);
         match account_at_specific_height {
             Ok(account) => {

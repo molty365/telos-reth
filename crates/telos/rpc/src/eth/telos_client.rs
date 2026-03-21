@@ -17,8 +17,6 @@ use regex::Regex;
 use tracing::{debug, error, warn};
 
 use backoff::Exponential;
-use reth_primitives::revm_primitives::bitvec::macros::internal::funty::Fundamental;
-use reth_rpc_eth_types::error::EthResult;
 use reth_rpc_eth_types::{EthApiError, RpcInvalidTransactionError};
 
 #[derive(Debug)]
@@ -37,7 +35,7 @@ impl From<TelosError> for EthApiError {
             ClientError::SIMPLE(client_error) => EthApiError::EvmCustom(client_error.message),
             ClientError::HTTP(http_error) => {
                 let http_error =
-                    ErrorObject::owned(http_error.code.as_i32(), http_error.message, None::<()>);
+                    ErrorObject::owned(http_error.code as i32, http_error.message, None::<()>);
                 EthApiError::Other(Box::new(http_error))
             }
             ClientError::ENCODING(encoding_error) => EthApiError::EvmCustom(encoding_error.message),
@@ -196,7 +194,7 @@ impl TelosClient {
     }
 
     /// Sends a raw transaction to Telos native network for inclusion in a block
-    pub async fn send_to_telos(&self, tx: &[u8]) -> EthResult<()> {
+    pub async fn send_to_telos(&self, tx: &[u8]) -> Result<(), EthApiError> {
         let get_info = self.inner.api_client.v1_chain.get_info().await.unwrap();
         let trx_header = get_info.get_transaction_header(90);
         let trx_header = trx_header.clone();

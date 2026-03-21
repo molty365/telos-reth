@@ -1,25 +1,25 @@
-use reth_chainspec::EthereumHardforks;
-use reth_evm::ConfigureEvm;
-use reth_node_api::{FullNodeComponents, NodeTypes};
-use reth_primitives::Header;
-use reth_rpc_eth_api::helpers::{Call, EthCall, LoadState, SpawnBlocking};
+use reth_rpc_convert::RpcConvert;
+use reth_rpc_eth_api::{
+    helpers::{estimate::EstimateCall, Call, EthCall},
+    FromEvmError, RpcNodeCore,
+};
+use reth_rpc_eth_types::EthApiError;
 
 use crate::eth::TelosEthApi;
-use crate::error::TelosEthApiError;
 
-
-impl<N> EthCall for TelosEthApi<N>
+impl<N, Rpc> EthCall for TelosEthApi<N, Rpc>
 where
-    Self: Call,
-    N: FullNodeComponents<Types: NodeTypes<ChainSpec: EthereumHardforks>>,
+    N: RpcNodeCore,
+    EthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = EthApiError, Evm = N::Evm>,
 {
 }
 
-impl<N> Call for TelosEthApi<N>
+impl<N, Rpc> Call for TelosEthApi<N, Rpc>
 where
-    Self: LoadState + SpawnBlocking,
-    Self::Error: From<TelosEthApiError>,
-    N: FullNodeComponents,
+    N: RpcNodeCore,
+    EthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = EthApiError, Evm = N::Evm>,
 {
     #[inline]
     fn call_gas_limit(&self) -> u64 {
@@ -32,8 +32,15 @@ where
     }
 
     #[inline]
-    fn evm_config(&self) -> &impl ConfigureEvm<Header = Header> {
-        self.inner.evm_config()
+    fn evm_memory_limit(&self) -> u64 {
+        self.inner.evm_memory_limit()
     }
+}
 
+impl<N, Rpc> EstimateCall for TelosEthApi<N, Rpc>
+where
+    N: RpcNodeCore,
+    EthApiError: FromEvmError<N::Evm>,
+    Rpc: RpcConvert<Primitives = N::Primitives, Error = EthApiError, Evm = N::Evm>,
+{
 }

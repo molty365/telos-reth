@@ -94,6 +94,13 @@ impl<H: Sealable> SealedHeader<H> {
         *self.hash_ref()
     }
 
+    /// Recomputes the block hash after header modification (e.g., state root update).
+    /// This replaces the cached hash with a freshly computed one.
+    pub fn reseal(&mut self) {
+        let new_hash = self.header.hash_slow();
+        self.hash = new_hash.into();
+    }
+
     /// This is the inverse of [`Self::seal_slow`] which returns the raw header and hash.
     pub fn split(self) -> (H, BlockHash) {
         let hash = self.hash();

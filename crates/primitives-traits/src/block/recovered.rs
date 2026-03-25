@@ -542,6 +542,14 @@ impl<B: Block> RecoveredBlock<B> {
     pub fn push_sender(&mut self, sender: Address) {
         self.senders.push(sender);
     }
+
+    /// TELOS: Updates the block state root and recomputes the block hash.
+    /// Used when the consensus client sends placeholder state roots that need
+    /// to be replaced with reth's computed values.
+    pub fn telos_set_state_root_and_reseal(&mut self, state_root: alloy_primitives::B256) {
+        self.block.set_state_root(state_root);
+        self.block.reseal();
+    }
 }
 
 #[cfg(any(test, feature = "test-utils"))]
@@ -594,6 +602,11 @@ impl<B: crate::test_utils::TestBlock> RecoveredBlock<B> {
     /// Updates the block state root.
     pub fn set_state_root(&mut self, state_root: alloy_primitives::B256) {
         self.block.set_state_root(state_root);
+    }
+
+    /// Recomputes the block hash after header modification (e.g., state root update).
+    pub fn reseal(&mut self) {
+        self.block.reseal()
     }
 
     /// Updates the block difficulty.

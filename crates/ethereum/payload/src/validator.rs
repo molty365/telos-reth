@@ -75,16 +75,15 @@ where
 
     let expected_hash = payload.block_hash();
 
-    // First parse the block
-    let sealed_block = payload.try_into_block_with_sidecar(&sidecar)?.seal_slow();
-
-    // Ensure the hash included in the payload matches the block hash
-    if expected_hash != sealed_block.hash() {
-        return Err(PayloadError::BlockHash {
-            execution: sealed_block.hash(),
-            consensus: expected_hash,
-        })
-    }
+    // TELOS: Use the consensus client's hash directly instead of recomputing.
+    // Telos EVM uses empty/placeholder state roots in block headers, so seal_slow()
+    // would compute a different hash (based on executed state) that doesn't match.
+    // Using new_unchecked preserves hash consistency with the old telos-reth binary
+    // and ensures fork_choice_updated can find blocks by the consensus client's hash.
+    let sealed_block = reth_primitives_traits::SealedBlock::new_unchecked(
+        payload.try_into_block_with_sidecar(&sidecar)?,
+        expected_hash,
+    );
 
     shanghai::ensure_well_formed_fields(
         sealed_block.body(),

@@ -400,6 +400,11 @@ impl<B: crate::test_utils::TestBlock> SealedBlock<B> {
         self.header.set_state_root(state_root)
     }
 
+    /// Recomputes the block hash after header modification.
+    pub fn reseal(&mut self) {
+        self.header.reseal()
+    }
+
     /// Updates the block difficulty.
     pub fn set_difficulty(&mut self, difficulty: alloy_primitives::U256) {
         self.header.set_difficulty(difficulty)

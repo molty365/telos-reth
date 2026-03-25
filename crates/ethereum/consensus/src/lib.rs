@@ -192,7 +192,9 @@ where
     ) -> Result<(), ConsensusError> {
         validate_against_parent_hash_number(header.header(), parent)?;
 
-        validate_against_parent_timestamp(header.header(), parent.header())?;
+        // TELOS: Skip timestamp validation - Telos blocks can have equal timestamps
+        // (0.5s block time, integer seconds means many blocks share the same timestamp)
+        // validate_against_parent_timestamp(header.header(), parent.header())?;
 
         validate_against_parent_gas_limit(header, parent, &self.chain_spec)?;
 

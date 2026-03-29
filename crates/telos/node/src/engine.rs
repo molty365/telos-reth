@@ -17,7 +17,8 @@ use reth_payload_primitives::{
     EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
 };
 use reth_payload_validator::{cancun, prague, shanghai};
-use reth_primitives_traits::SealedBlock;
+use reth_primitives_traits::{SealedBlock, RecoveredBlock, Block as BlockTrait, SignedTransaction};
+use reth_engine_primitives::NewPayloadError;
 use std::sync::Arc;
 
 /// Telos engine validator that trusts block_hash from the consensus client.
@@ -89,6 +90,35 @@ where
         payload: ExecutionData,
     ) -> Result<SealedBlock<Self::Block>, NewPayloadError> {
         telos_ensure_well_formed_payload(self.chain_spec.as_ref(), payload).map_err(Into::into)
+    }
+
+    fn ensure_well_formed_payload(
+        &self,
+        payload: ExecutionData,
+    ) -> Result<RecoveredBlock<Self::Block>, NewPayloadError> {
+        let sealed_block = self.convert_payload_to_block(payload)?;
+        
+        // Telos: Custom recovery that handles non-standard signatures
+        // In Telos, system transactions encode the sender in the S field
+        let block = sealed_block.clone_sealed_header();
+        let txs = sealed_block.body().transactions();
+        let mut senders = Vec::with_capacity(txs.len());
+        
+        for tx in txs {
+            match tx.recover_signer() {
+                Ok(addr) => senders.push(addr),
+                Err(_) => {
+                    // Telos recovery: sender address is in the first 20 bytes of S
+                    let s = tx.signature().s();
+                    let s_bytes = s.to_be_bytes::<32>();
+                    let addr = alloy_primitives::Address::from_slice(&s_bytes[..20]);
+                    senders.push(addr);
+                }
+            }
+        }
+        
+        let (header, body) = sealed_block.split();
+        Ok(RecoveredBlock::new_sealed(header, body, senders))
     }
 }
 

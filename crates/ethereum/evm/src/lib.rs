@@ -300,7 +300,11 @@ where
         let convert = |tx: Bytes| {
             let tx =
                 TxTy::<Self::Primitives>::decode_2718_exact(tx.as_ref()).map_err(AnyError::new)?;
-            let signer = tx.try_recover().map_err(AnyError::new)?;
+            // Telos: fallback for system transactions with non-standard signatures
+            let signer = match tx.try_recover() {
+                Ok(addr) => addr,
+                Err(_) => alloy_primitives::Address::ZERO,
+            };
             Ok::<_, AnyError>(tx.with_signer(signer))
         };
 

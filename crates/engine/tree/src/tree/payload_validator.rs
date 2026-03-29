@@ -242,7 +242,17 @@ where
             }
             BlockOrPayload::Block(block) => {
                 let txs = block.body().clone_transactions();
-                let convert = |tx: N::SignedTx| tx.try_into_recovered();
+                let convert = |tx: N::SignedTx| -> Result<reth_primitives_traits::Recovered<N::SignedTx>, reth_primitives_traits::transaction::signed::RecoveryError> {
+                    // Telos: fallback for non-standard signatures (system transactions)
+                    match tx.clone().try_into_recovered() {
+                        Ok(recovered) => Ok(recovered),
+                        Err(_) => {
+                            // System transaction with non-standard signature
+                            // Use Address::ZERO as sender - validated by nodeos
+                            Ok(reth_primitives_traits::Recovered::new_unchecked(tx, alloy_primitives::Address::ZERO))
+                        }
+                    }
+                };
                 Either::Right((txs, convert))
             }
         })

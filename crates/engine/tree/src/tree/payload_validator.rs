@@ -668,10 +668,26 @@ where
         let header = state.tree_state.sealed_header_by_hash(&hash);
 
         if header.is_some() {
-            Ok(header)
-        } else {
-            self.provider.sealed_header_by_hash(hash)
+            return Ok(header)
         }
+
+        let db_header = self.provider.sealed_header_by_hash(hash)?;
+        if db_header.is_some() {
+            return Ok(db_header)
+        }
+
+        // Telos: when trust_consensus is enabled and parent header not found,
+        // return the genesis header as fallback. The consensus client provides
+        // correct execution results, so parent header is only needed for
+        // validation checks we skip anyway.
+        if reth_telos_primitives_traits::trust_consensus() {
+            if let Ok(Some(genesis)) = self.provider.sealed_header(0) {
+                debug!(target: "engine::tree::payload_validator", %hash, "Telos: parent header not found, using genesis header");
+                return Ok(Some(genesis))
+            }
+        }
+
+        Ok(None)
     }
 
     /// Validate if block is correct and satisfies all the consensus rules that concern the header

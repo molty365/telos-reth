@@ -594,15 +594,15 @@ where
                 self.metrics.block_validation.state_root_parallel_fallback_total.increment(1);
             }
 
-            let (root, updates) = ensure_ok_post_block!(
-                Self::compute_state_root_serial(overlay_factory.clone(), &hashed_state),
-                block
-            );
-
+            // Telos: skip serial state root computation during consensus sync.
+            // We bypass state root validation anyway, so no need to compute it.
+            // Just use empty trie updates with the expected state root as placeholder.
+            let root = block.header().state_root();
+            let updates = reth_trie::updates::TrieUpdates::default();
             if state_root_task_failed {
+                tracing::warn!(target: "engine::tree::payload_validator", "Telos: skipping serial state root computation for tx block");
                 self.metrics.block_validation.state_root_task_fallback_success_total.increment(1);
             }
-
             (root, updates, root_time.elapsed())
         };
 

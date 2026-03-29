@@ -242,7 +242,10 @@ where
         // configure evm env based on parent block
         let mut cfg_env = CfgEnv::new()
             .with_chain_id(self.chain_spec().chain().id())
-            .with_spec_and_mainnet_gas_params(spec);
+            .with_spec_and_mainnet_gas_params(spec)
+            .disable_tx_chain_id_check();
+            cfg_env.disable_base_fee = true;
+            cfg_env.disable_nonce_check = true;
 
         if let Some(blob_params) = &blob_params {
             cfg_env.set_max_blobs_per_tx(blob_params.max_blobs_per_tx);

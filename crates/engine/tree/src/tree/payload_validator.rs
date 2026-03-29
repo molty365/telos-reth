@@ -411,7 +411,12 @@ where
         };
 
         // Plan the strategy used for state root computation.
-        let strategy = self.plan_state_root_computation();
+        // Telos: when trust_consensus is true, always use Synchronous (which skips to our bypass)
+        let strategy = if reth_telos_primitives_traits::trust_consensus() {
+            StateRootStrategy::Synchronous
+        } else {
+            self.plan_state_root_computation()
+        };
 
         debug!(
             target: "engine::tree::payload_validator",

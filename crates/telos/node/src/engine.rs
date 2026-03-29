@@ -17,8 +17,7 @@ use reth_payload_primitives::{
     EngineObjectValidationError, NewPayloadError, PayloadOrAttributes,
 };
 use reth_payload_validator::{cancun, prague, shanghai};
-use reth_primitives_traits::{SealedBlock, RecoveredBlock, Block as BlockTrait, SignedTransaction};
-use reth_engine_primitives::NewPayloadError;
+use reth_primitives_traits::{RecoveredBlock, SealedBlock, SignedTransaction, SignerRecoverable};
 use std::sync::Arc;
 
 /// Telos engine validator that trusts block_hash from the consensus client.
@@ -35,12 +34,6 @@ impl<ChainSpec> TelosEngineValidator<ChainSpec> {
 }
 
 /// Convert payload to block, trusting the block_hash from the consensus client.
-///
-/// This is a modified version of `EthereumExecutionPayloadValidator::ensure_well_formed_payload`
-/// that replaces `seal_slow()` with `from_parts_unchecked()` to avoid recomputing the hash.
-///
-/// The legacy Telos consensus client (alloy 0.3.x) computes hashes with `base_fee_per_gas: None`
-/// in the header RLP but sends a non-zero `base_fee_per_gas` in the `ExecutionPayloadV1`.
 fn telos_ensure_well_formed_payload(
     chain_spec: &impl EthereumHardforks,
     payload: ExecutionData,
@@ -96,29 +89,21 @@ where
         &self,
         payload: ExecutionData,
     ) -> Result<RecoveredBlock<Self::Block>, NewPayloadError> {
-        let sealed_block = self.convert_payload_to_block(payload)?;
-        
-        // Telos: Custom recovery that handles non-standard signatures
-        // In Telos, system transactions encode the sender in the S field
-        let block = sealed_block.clone_sealed_header();
-        let txs = sealed_block.body().transactions();
-        let mut senders = Vec::with_capacity(txs.len());
-        
-        for tx in txs {
-            match tx.recover_signer() {
-                Ok(addr) => senders.push(addr),
-                Err(_) => {
-                    // Telos recovery: sender address is in the first 20 bytes of S
-                    let s = tx.signature().s();
-                    let s_bytes = s.to_be_bytes::<32>();
-                    let addr = alloy_primitives::Address::from_slice(&s_bytes[..20]);
-                    senders.push(addr);
-                }
-            }
+        let sealed_block = <TelosEngineValidator<ChainSpec> as PayloadValidator<Types>>::convert_payload_to_block(self, payload)?;
+
+        // Telos: fallback for system transactions with non-standard signatures
+        // Use Address::ZERO for any tx that fails ECDSA recovery
+        let hash = sealed_block.hash();
+        let (sealed_header, body) = sealed_block.split_sealed_header_body();
+        let mut senders: Vec<alloy_primitives::Address> = Vec::with_capacity(body.transactions.len());
+        for tx in &body.transactions {
+            let sender: alloy_primitives::Address = tx.recover_signer()
+                .unwrap_or(alloy_primitives::Address::ZERO);
+            senders.push(sender);
         }
-        
-        let (header, body) = sealed_block.split();
-        Ok(RecoveredBlock::new_sealed(header, body, senders))
+        let header = sealed_header.unseal();
+        let block = reth_ethereum_primitives::Block { header, body };
+        Ok(RecoveredBlock::new(block, senders, hash))
     }
 }
 
@@ -145,12 +130,6 @@ where
         version: EngineApiMessageVersion,
         attributes: &EthPayloadAttributes,
     ) -> Result<(), EngineObjectValidationError> {
-        validate_version_specific_fields(
-            &self.chain_spec,
-            version,
-            PayloadOrAttributes::<Types::ExecutionData, EthPayloadAttributes>::PayloadAttributes(
-                attributes,
-            ),
-        )
+        validate_version_specific_fields::<ExecutionData, EthPayloadAttributes, _>(&self.chain_spec, version, PayloadOrAttributes::from(attributes))
     }
 }

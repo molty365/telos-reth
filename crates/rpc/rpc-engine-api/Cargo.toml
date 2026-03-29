@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 # reth
 reth-chainspec.workspace = true
+reth-telos-rpc-engine-api.workspace = true
 reth-rpc-api.workspace = true
 reth-storage-api.workspace = true
 reth-payload-builder.workspace = true

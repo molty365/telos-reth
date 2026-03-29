@@ -8,6 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 description = "Reth RPC interfaces"
 
+
 [lints]
 workspace = true
 
@@ -36,6 +37,9 @@ alloy-serde.workspace = true
 alloy-rpc-types-beacon.workspace = true
 alloy-rpc-types-engine.workspace = true
 alloy-genesis.workspace = true
+
+# telos
+reth-telos-rpc-engine-api.workspace = true
 
 # misc
 jsonrpsee = { workspace = true, features = ["server", "macros"] }

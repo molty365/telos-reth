@@ -9256,6 +9256,7 @@ dependencies = [
  "reth-primitives-traits",
  "reth-storage-api",
  "reth-storage-errors",
+ "reth-telos-rpc-engine-api",
  "reth-trie-common",
  "revm",
 ]
@@ -10409,6 +10410,7 @@ dependencies = [
  "reth-engine-primitives",
  "reth-network-peers",
  "reth-rpc-eth-api",
+ "reth-telos-rpc-engine-api",
  "reth-trie-common",
  "serde_json",
  "tokio",
@@ -10561,6 +10563,7 @@ dependencies = [
  "reth-rpc-api",
  "reth-storage-api",
  "reth-tasks",
+ "reth-telos-rpc-engine-api",
  "reth-testing-utils",
  "reth-transaction-pool",
  "serde",

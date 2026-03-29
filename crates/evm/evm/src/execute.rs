@@ -554,6 +554,36 @@ where
         block: &RecoveredBlock<<Self::Primitives as NodePrimitives>::Block>,
     ) -> Result<BlockExecutionResult<<Self::Primitives as NodePrimitives>::Receipt>, Self::Error>
     {
+        // Telos: Apply pre-execution account creations from consensus client extra fields
+        let block_hash = block.hash();
+        let block_number = block.number();
+        let extra = reth_telos_rpc_engine_api::extra_fields_store::take_extra_fields(&block_hash);
+        if extra.is_some() { eprintln!("TELOS: Extra fields found for block {}", block_number); }
+        if let Some(extra) = extra {
+            if let Some(creates) = &extra.new_addresses_using_create {
+                for (_tx_idx, addr_u256) in creates {
+                    let addr = Address::from_word(B256::from(*addr_u256));
+                    self.db.insert_not_existing(addr);
+                    let mut account_state = std::collections::HashMap::default();
+                    account_state.insert(addr, revm::state::Account {
+                        info: revm::state::AccountInfo {
+                            balance: alloy_primitives::U256::ZERO,
+                            nonce: 1,
+                            code: Some(revm::bytecode::Bytecode::default()),
+                            code_hash: alloy_primitives::B256::from(revm::primitives::KECCAK_EMPTY),
+                            account_id: Some(0),
+                        },
+                        storage: std::collections::HashMap::default(),
+                        status: revm::state::AccountStatus::Touched | revm::state::AccountStatus::LoadedAsNotExisting,
+                        original_info: Box::new(revm::state::AccountInfo::default()),
+                        transaction_id: 0,
+                    });
+                    use revm::DatabaseCommit;
+                    self.db.commit(account_state);
+                }
+            }
+        }
+
         let result = self
             .strategy_factory
             .executor_for_block(&mut self.db, block)

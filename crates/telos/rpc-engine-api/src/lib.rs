@@ -4,4 +4,4 @@
 pub mod structs;
 
 /// Telos Engine API State diff comparator
-pub mod compare;
+pub mod compare;pub mod extra_fields_store;

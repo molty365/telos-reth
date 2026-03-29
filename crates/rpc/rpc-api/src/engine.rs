@@ -3,6 +3,7 @@
 //! This contains the `engine_` namespace and the subset of the `eth_` namespace that is exposed to
 //! the consensus client.
 
+use reth_telos_rpc_engine_api::structs::TelosEngineAPIExtraFields;
 use alloy_eips::{
     eip4844::{BlobAndProofV1, BlobAndProofV2},
     eip7685::RequestsOrHash,
@@ -45,7 +46,7 @@ pub trait EngineApi<Engine: EngineTypes> {
     /// See also <https://github.com/ethereum/execution-apis/blob/6709c2a795b707202e93c4f2867fa0bf2640a84f/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
     #[method(name = "newPayloadV1")]
-    async fn new_payload_v1(&self, payload: ExecutionPayloadV1) -> RpcResult<PayloadStatus>;
+    async fn new_payload_v1(&self, payload: ExecutionPayloadV1, telos_extra: Option<TelosEngineAPIExtraFields>) -> RpcResult<PayloadStatus>;
 
     /// See also <https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/shanghai.md#engine_newpayloadv2>
     #[method(name = "newPayloadV2")]

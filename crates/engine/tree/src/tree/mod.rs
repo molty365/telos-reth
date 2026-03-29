@@ -620,10 +620,16 @@ where
         };
 
         let mut outcome = TreeOutcome::new(status);
-        // if the block is valid and it is the current sync target head, make it canonical
-        if outcome.outcome.is_valid() && self.is_sync_target_head(block_hash) {
-            // Only create the canonical event if this block isn't already the canonical head
-            if self.state.tree_state.canonical_block_hash() != block_hash {
+        if outcome.outcome.is_valid() {
+            let should_make_canonical = if reth_telos_primitives_traits::trust_consensus() {
+                // Telos: every valid block from consensus client should be canonical
+                self.state.tree_state.canonical_block_hash() != block_hash
+            } else {
+                // Standard: only make canonical if it matches the sync target head
+                self.is_sync_target_head(block_hash) &&
+                    self.state.tree_state.canonical_block_hash() != block_hash
+            };
+            if should_make_canonical {
                 outcome = outcome.with_event(TreeEvent::TreeAction(TreeAction::MakeCanonical {
                     sync_target_head: block_hash,
                 }));

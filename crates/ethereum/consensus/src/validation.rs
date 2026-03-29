@@ -33,15 +33,13 @@ where
     let header_gas_used = block.header().gas_used();
     if header_gas_used != cumulative_gas_used {
         if reth_telos_primitives_traits::trust_consensus() {
-            // Telos: system transactions claim gas but EVM execution may differ.
-            // Allow mismatch when header gas > EVM gas (large diff indicates system tx).
-            let diff = header_gas_used.saturating_sub(cumulative_gas_used);
-            if !(diff > 1000 && header_gas_used > cumulative_gas_used) {
-                return Err(ConsensusError::BlockGasUsed {
-                    gas: GotExpected { got: cumulative_gas_used, expected: header_gas_used },
-                    gas_spent_by_tx: gas_spent_by_transactions(receipts),
-                })
-            }
+            // Telos: skip gas validation entirely — nodeos is the source of truth for gas.
+            tracing::debug!(
+                target: "telos::consensus",
+                header_gas_used,
+                cumulative_gas_used,
+                "Telos: gas mismatch (trusted consensus, skipping)"
+            );
         } else {
             return Err(ConsensusError::BlockGasUsed {
                 gas: GotExpected { got: cumulative_gas_used, expected: header_gas_used },

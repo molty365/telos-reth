@@ -1239,12 +1239,20 @@ where
         };
 
         let target = self.lowest_buffered_ancestor_or(target);
-        trace!(target: "engine::tree", %target, "downloading missing block");
 
-        Ok(TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
-            PayloadStatusEnum::Syncing,
-        )))
-        .with_event(TreeEvent::Download(DownloadRequest::single_block(target))))
+        if reth_telos_primitives_traits::trust_consensus() {
+            // Telos: skip P2P download, blocks come from consensus client
+            trace!(target: "engine::tree", %target, "Telos: skipping P2P download, waiting for consensus client");
+            Ok(TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+                PayloadStatusEnum::Syncing,
+            ))))
+        } else {
+            trace!(target: "engine::tree", %target, "downloading missing block");
+            Ok(TreeOutcome::new(OnForkChoiceUpdated::valid(PayloadStatus::from_status(
+                PayloadStatusEnum::Syncing,
+            )))
+            .with_event(TreeEvent::Download(DownloadRequest::single_block(target))))
+        }
     }
 
     /// Helper method to remove blocks and set the persistence state. This ensures we keep track of
@@ -2987,13 +2995,20 @@ where
         // This handles two cases:
         // 1. init-state dummy blocks with B256::ZERO hashes
         // 2. Blocks persisted by the engine tree that don't get hash-indexed
-        // In both cases, use the best block's state as the starting point.
+        // 3. Fresh start (best_block == 0) with trust_consensus - use genesis state
+        // In all cases, use the best block's state as the starting point.
         if let Ok(best_block) = self.provider.best_block_number() {
             if best_block > 0 {
                 debug!(target: "engine::tree", %hash, %best_block, "Telos: parent hash not found, using best persisted block state");
                 if let Some(header) = self.provider.sealed_header(best_block).ok().flatten() {
                     return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
                 }
+            } else if reth_telos_primitives_traits::trust_consensus() {
+                // Fresh start with trust_consensus: use genesis state (block 0)
+                // The consensus client provides execution results, so we don't need
+                // accurate parent state - just a valid state provider to attach blocks to.
+                debug!(target: "engine::tree", %hash, "Telos: trust_consensus fresh start, using genesis state");
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
             }
         }
 

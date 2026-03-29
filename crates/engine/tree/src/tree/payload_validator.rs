@@ -701,10 +701,12 @@ where
         let spec_id = *env.evm_env.spec_id();
         // Telos: Load extra fields and apply pre-execution account creations
         let block_hash_for_extra = input.hash();
-        eprintln!("TELOS VALIDATOR: execute_block called for hash {:?}", block_hash_for_extra);
-        let extra_path = format!("/tmp/telos-extra-fields/{:?}.json", block_hash_for_extra);
-        eprintln!("TELOS VALIDATOR: checking file {}", extra_path);
-        eprintln!("TELOS VALIDATOR: file exists={}", std::path::Path::new(&extra_path).exists());
+        {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
+                let _ = writeln!(f, "TELOS: execute_block hash={:?} num={}", block_hash_for_extra, input.num_hash().number);
+            }
+        }
         if let Some(extra) = reth_telos_rpc_engine_api::extra_fields_store::take_extra_fields(&block_hash_for_extra) {
             if let Some(creates) = &extra.new_addresses_using_create {
                 for (_tx_idx, addr_u256) in creates {
@@ -726,7 +728,7 @@ where
                     });
                     use revm::DatabaseCommit;
                     db.commit(account_state);
-                    eprintln!("TELOS: Pre-created account {:?} for block", addr);
+                    { use std::io::Write; if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") { let _ = writeln!(f, "TELOS: Pre-created account {:?}", addr); } }
                 }
             }
         }
@@ -1252,6 +1254,27 @@ where
             // For persisted blocks, we create a builder that will fetch state directly from the
             // database
             return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
+        }
+
+        // Telos: Fallback when parent hash isn't indexed in DB
+        {
+            use std::io::Write;
+            let best = self.provider.best_block_number().unwrap_or(0);
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
+                let _ = writeln!(f, "TELOS FALLBACK: hash={:?} best_block={}", hash, best);
+            }
+            if best > 0 {
+                if let Some(header) = self.provider.sealed_header(best).ok().flatten() {
+                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
+                        let _ = writeln!(f, "TELOS FALLBACK: using header hash={:?}", header.hash());
+                    }
+                    return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
+                } else {
+                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
+                        let _ = writeln!(f, "TELOS FALLBACK: sealed_header({}) returned None!", best);
+                    }
+                }
+            }
         }
 
         debug!(target: "engine::tree::payload_validator", %hash, "no canonical state found for block");

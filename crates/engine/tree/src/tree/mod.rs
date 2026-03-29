@@ -2983,16 +2983,16 @@ where
             return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
         }
 
-        // Telos: If the block hash is not found (init-state dummy blocks have B256::ZERO hash),
-        // fall back to using the best persisted block as state provider.
-        // This handles consensus client sending real parent hashes for blocks after init-state boundary.
+        // Telos: Fallback for when the parent block hash isn't indexed.
+        // This handles two cases:
+        // 1. init-state dummy blocks with B256::ZERO hashes
+        // 2. Blocks persisted by the engine tree that don't get hash-indexed
+        // In both cases, use the best block's state as the starting point.
         if let Ok(best_block) = self.provider.best_block_number() {
-            if let Ok(last_static) = self.provider.last_block_number() {
-                if last_static > best_block {
-                    debug!(target: "engine::tree", %hash, %best_block, %last_static, "Telos: parent hash not found, init-state gap detected, using best block state");
-                    if let Some(header) = self.provider.sealed_header(best_block).ok().flatten() {
-                        return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
-                    }
+            if best_block > 0 {
+                debug!(target: "engine::tree", %hash, %best_block, "Telos: parent hash not found, using best persisted block state");
+                if let Some(header) = self.provider.sealed_header(best_block).ok().flatten() {
+                    return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
                 }
             }
         }

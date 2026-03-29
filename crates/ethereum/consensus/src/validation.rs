@@ -27,16 +27,36 @@ where
     R: Receipt,
     ChainSpec: EthereumHardforks,
 {
-// Check if gas used matches the value set in header.    // Skip for Telos: system transactions claim gas but EVM execution may differ    let cumulative_gas_used =        receipts.last().map(|receipt| receipt.cumulative_gas_used()).unwrap_or(0);    let header_gas_used = block.header().gas_used();    // Allow system tx blocks where header gas > EVM gas (large diff indicates system tx)    if header_gas_used != cumulative_gas_used {        let diff: u64 = if header_gas_used > cumulative_gas_used {            header_gas_used - cumulative_gas_used        } else {            cumulative_gas_used - header_gas_used        };        if !(diff > 1000 && header_gas_used > cumulative_gas_used) {            return Err(ConsensusError::BlockGasUsed {                gas: GotExpected { got: cumulative_gas_used, expected: header_gas_used },                gas_spent_by_tx: gas_spent_by_transactions(receipts),            })        }    }
+    // Check if gas used matches the value set in header.
+    let cumulative_gas_used =
+        receipts.last().map(|receipt| receipt.cumulative_gas_used()).unwrap_or(0);
+    let header_gas_used = block.header().gas_used();
+    if header_gas_used != cumulative_gas_used {
+        if reth_telos_primitives_traits::trust_consensus() {
+            // Telos: system transactions claim gas but EVM execution may differ.
+            // Allow mismatch when header gas > EVM gas (large diff indicates system tx).
+            let diff = header_gas_used.saturating_sub(cumulative_gas_used);
+            if !(diff > 1000 && header_gas_used > cumulative_gas_used) {
+                return Err(ConsensusError::BlockGasUsed {
+                    gas: GotExpected { got: cumulative_gas_used, expected: header_gas_used },
+                    gas_spent_by_tx: gas_spent_by_transactions(receipts),
+                })
+            }
+        } else {
+            return Err(ConsensusError::BlockGasUsed {
+                gas: GotExpected { got: cumulative_gas_used, expected: header_gas_used },
+                gas_spent_by_tx: gas_spent_by_transactions(receipts),
+            })
+        }
+    }
 
     // Before Byzantium, receipts contained state root that would mean that expensive
     // operation as hashing that is required for state root got calculated in every
     // transaction This was replaced with is_success flag.
     // See more about EIP here: https://eips.ethereum.org/EIPS/eip-658
-    // Telos: skip receipt root validation - EVM state diverges from consensus due to system
-    // transactions and empty state root bypass. Block validity is guaranteed by nodeos consensus.
-    #[allow(unused_variables)]
-    if false && chain_spec.is_byzantium_active_at_block(block.header().number()) {
+    // Telos: skip receipt root validation when trust_consensus is enabled — EVM state diverges
+    // from consensus due to system transactions. Block validity is guaranteed by nodeos consensus.
+    if !reth_telos_primitives_traits::trust_consensus() && chain_spec.is_byzantium_active_at_block(block.header().number()) {
         let result = if let Some((receipts_root, logs_bloom)) = receipt_root_bloom {
             compare_receipts_root_and_logs_bloom(
                 receipts_root,

@@ -594,33 +594,44 @@ where
                 self.metrics.block_validation.state_root_parallel_fallback_total.increment(1);
             }
 
-            // Telos: skip serial state root computation during consensus sync.
-            // We bypass state root validation anyway, so no need to compute it.
-            // Just use empty trie updates with the expected state root as placeholder.
-            let root = block.header().state_root();
-            let updates = reth_trie::updates::TrieUpdates::default();
-            if state_root_task_failed {
-                tracing::warn!(target: "engine::tree::payload_validator", "Telos: skipping serial state root computation for tx block");
-                self.metrics.block_validation.state_root_task_fallback_success_total.increment(1);
+            if reth_telos_primitives_traits::trust_consensus() {
+                // Telos: skip serial state root computation — use header root as placeholder.
+                let root = block.header().state_root();
+                let updates = reth_trie::updates::TrieUpdates::default();
+                if state_root_task_failed {
+                    tracing::warn!(target: "engine::tree::payload_validator", "Telos: skipping serial state root computation for tx block");
+                    self.metrics.block_validation.state_root_task_fallback_success_total.increment(1);
+                }
+                (root, updates, root_time.elapsed())
+            } else {
+                let (root, updates) =
+                    Self::compute_state_root_serial(overlay_factory.clone(), &hashed_state)?;
+                self.metrics
+                    .block_validation
+                    .state_root_task_fallback_success_total
+                    .increment(1);
+                (root, updates, root_time.elapsed())
             }
-            (root, updates, root_time.elapsed())
         };
 
         self.metrics.block_validation.record_state_root(&trie_output, root_elapsed.as_secs_f64());
         debug!(target: "engine::tree::payload_validator", ?root_elapsed, "Calculated state root");
 
-        // TELOS: Replace consensus client's state root with reth's computed root.
-        // Telos consensus sends empty/placeholder state roots. We update the block header
-        // with the actual computed root and reseal (rehash) so all downstream hash references
-        // are consistent.
         if state_root != block.header().state_root() {
-            debug!(
-                target: "engine::tree::payload_validator",
-                ?state_root,
-                block_state_root = ?block.header().state_root(),
-                block_number = block.header().number(),
-                "Telos: state root mismatch - computed root differs from consensus"
-            );
+            if reth_telos_primitives_traits::trust_consensus() {
+                // Telos: state root mismatch is expected — nodeos consensus guarantees validity.
+                debug!(
+                    target: "engine::tree::payload_validator",
+                    ?state_root,
+                    block_state_root = ?block.header().state_root(),
+                    block_number = block.header().number(),
+                    "Telos: state root mismatch - computed root differs from consensus"
+                );
+            } else {
+                return Err(reth_consensus::ConsensusError::BodyStateRootDiff(
+                    reth_primitives_traits::GotExpected { got: state_root, expected: block.header().state_root() }.into(),
+                ).into())
+            }
         }
 
         if let Some(valid_block_tx) = valid_block_tx {
@@ -865,11 +876,14 @@ where
             trace!(target: "engine::tree", "Executing transaction");
 
             let tx_start = Instant::now();
-            // Telos: ignore EVM execution errors (insufficient funds, etc.)
-            // Account state diverges from production due to empty state root bypass.
-            // Block validity is guaranteed by nodeos consensus (Antelope DPoS).
-            if let Err(err) = executor.execute_transaction(tx) {
-                tracing::warn!(target: "engine::tree", ?err, "Telos: ignoring EVM execution error for tx");
+            if reth_telos_primitives_traits::trust_consensus() {
+                // Telos: ignore EVM execution errors (insufficient funds, etc.)
+                // Block validity is guaranteed by nodeos consensus (Antelope DPoS).
+                if let Err(err) = executor.execute_transaction(tx) {
+                    tracing::warn!(target: "engine::tree", ?err, "Telos: ignoring EVM execution error for tx");
+                }
+            } else {
+                executor.execute_transaction(tx)?;
             }
             self.metrics.record_transaction_execution(tx_start.elapsed());
 
@@ -1409,12 +1423,9 @@ where
         let ancestors: Vec<DeferredTrieData> =
             overlay_blocks.iter().rev().map(|b| b.trie_data_handle()).collect();
 
-        // Telos: if trie_output is empty (Telos bypass), skip deferred computation entirely.
-        // Use DeferredTrieData::ready() with empty ComputedTrieData to avoid expensive
-        // trie computation on blocks we cannot properly execute (empty EVM state).
-        let deferred_trie_data = if trie_output.is_empty() {
-            // Telos: empty trie_output means we skipped serial state root computation.
-            // Use ready() with default ComputedTrieData to avoid expensive background trie task.
+        // Telos: when trust_consensus is enabled and trie_output is empty (bypassed state root),
+        // skip deferred computation to avoid expensive background trie task on empty EVM state.
+        let deferred_trie_data = if reth_telos_primitives_traits::trust_consensus() && trie_output.is_empty() {
             DeferredTrieData::ready(ComputedTrieData::default())
         } else {
             DeferredTrieData::pending(

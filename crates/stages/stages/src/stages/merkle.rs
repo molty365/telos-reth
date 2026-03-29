@@ -428,12 +428,19 @@ fn validate_state_root<H: BlockHeader + Sealable + Debug>(
     expected: SealedHeader<H>,
     target_block: BlockNumber,
 ) -> Result<(), StageError> {
-    // Telos: skip state root validation - EVM state diverges from consensus due to
-    // empty state root bypass. Block validity is guaranteed by nodeos consensus.
-    if got != expected.state_root() {
-        tracing::warn!(target: "sync::stages::merkle", ?target_block, ?got, block_state_root=?expected.state_root(), "Telos: ignoring state root mismatch in pipeline");
+    if got == expected.state_root() {
+        return Ok(())
     }
-    Ok(())
+
+    if reth_telos_primitives_traits::trust_consensus() {
+        // Telos: skip state root validation — block validity is guaranteed by nodeos consensus.
+        tracing::warn!(target: "sync::stages::merkle", ?target_block, ?got, block_state_root=?expected.state_root(), "Telos: ignoring state root mismatch in pipeline");
+        return Ok(())
+    }
+
+    Err(StageError::Fatal(Box::new(ConsensusError::BodyStateRootDiff(
+        GotExpected { got, expected: expected.state_root() }.into(),
+    ))))
 }
 
 #[cfg(test)]

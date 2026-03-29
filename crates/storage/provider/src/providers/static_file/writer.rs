@@ -1074,15 +1074,21 @@ impl<N: NodePrimitives> StaticFileProviderRW<N> {
         if let Some(range) = self.writer.user_header().tx_range() {
             let next_tx = range.end() + 1;
             if next_tx != tx_num {
-                // Telos: skip the strict tx number check - genesis transactions may have
-                // pre-populated the transactions static file with different tx numbers
-                // than the receipts file. This is expected during historical sync.
-                tracing::warn!(
-                    "Telos: static file tx number mismatch (expected {}, got {}), updating range",
-                    next_tx, tx_num
-                );
-                // Update the range to match what we're actually writing
-                self.writer.user_header_mut().set_tx_range(tx_num, tx_num);
+                if reth_telos_primitives_traits::trust_consensus() {
+                    // Telos: genesis transactions may have pre-populated the transactions
+                    // static file with different tx numbers than the receipts file.
+                    tracing::warn!(
+                        "Telos: static file tx number mismatch (expected {}, got {}), updating range",
+                        next_tx, tx_num
+                    );
+                    self.writer.user_header_mut().set_tx_range(tx_num, tx_num);
+                } else {
+                    return Err(ProviderError::UnexpectedStaticFileTxNumber(
+                        self.writer.user_header().segment(),
+                        next_tx,
+                        tx_num,
+                    ))
+                }
             } else {
                 self.writer.user_header_mut().increment_tx();
             }

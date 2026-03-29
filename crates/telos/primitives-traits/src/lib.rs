@@ -14,6 +14,22 @@ use serde::{Deserialize, Serialize};
 use reth_codecs::Compact;
 pub use header::TelosHeader;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Global flag: when true, reth trusts execution results from the consensus client (nodeos)
+/// instead of re-executing and re-verifying. Default: false (set at startup based on CLI flag).
+static TRUST_CONSENSUS: AtomicBool = AtomicBool::new(false);
+
+/// Set the global trust_consensus flag (called once at startup).
+pub fn set_trust_consensus(v: bool) {
+    TRUST_CONSENSUS.store(v, Ordering::Relaxed);
+}
+
+/// Returns true if reth should trust consensus client execution results.
+pub fn trust_consensus() -> bool {
+    TRUST_CONSENSUS.load(Ordering::Relaxed)
+}
+
 /// Bincode-compatible serde implementations for consensus types.
 ///
 /// `bincode` crate doesn't work well with optionally serializable serde fields, but some of the

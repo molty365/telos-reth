@@ -41,6 +41,7 @@ reth-static-file-types.workspace = true
 reth-tasks.workspace = true
 reth-trie = { workspace = true, features = ["metrics"] }
 reth-trie-db = { workspace = true, features = ["metrics"] }
+reth-telos-primitives-traits.workspace = true
 
 reth-testing-utils = { workspace = true, optional = true }
 

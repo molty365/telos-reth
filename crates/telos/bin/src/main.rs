@@ -29,6 +29,12 @@ fn main() {
     }
 
     if let Err(err) = Cli::<EthereumChainSpecParser, TelosArgs>::parse().run(|builder, telos_args| async move {
+        // Set the global trust_consensus flag from CLI args
+        reth_telos_primitives_traits::set_trust_consensus(telos_args.trust_consensus);
+        if telos_args.trust_consensus {
+            info!("Telos: trust_consensus enabled - trusting nodeos consensus for execution results");
+        }
+
         let two_way_storage_compare = telos_args.two_way_storage_compare.clone();
         let telos_rpc = telos_args.telos_endpoint.clone();
         let block_delta = telos_args.block_delta.clone();

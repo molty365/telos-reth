@@ -41,6 +41,12 @@ pub struct TelosArgs {
     /// Block delta between native and EVM
     #[arg(long = "telos.block_delta")]
     pub block_delta: Option<u32>,
+
+    /// Trust consensus client execution results (from nodeos) instead of re-verifying.
+    /// When true, skips receipt root validation, tolerates EVM execution errors,
+    /// skips state root recomputation, and bypasses static file tx number checks.
+    #[arg(long = "telos.trust_consensus", default_value = "true")]
+    pub trust_consensus: bool,
 }
 
 impl From<TelosArgs> for TelosClientArgs {

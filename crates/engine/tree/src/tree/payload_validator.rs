@@ -604,8 +604,10 @@ where
                 }
                 (root, updates, root_time.elapsed())
             } else {
-                let (root, updates) =
-                    Self::compute_state_root_serial(overlay_factory.clone(), &hashed_state)?;
+                let (root, updates) = ensure_ok_post_block!(
+                    Self::compute_state_root_serial(overlay_factory.clone(), &hashed_state),
+                    block
+                );
                 self.metrics
                     .block_validation
                     .state_root_task_fallback_success_total
@@ -628,8 +630,11 @@ where
                     "Telos: state root mismatch - computed root differs from consensus"
                 );
             } else {
-                return Err(reth_consensus::ConsensusError::BodyStateRootDiff(
-                    reth_primitives_traits::GotExpected { got: state_root, expected: block.header().state_root() }.into(),
+                return Err(InsertBlockError::new(
+                    block.clone(),
+                    reth_consensus::ConsensusError::BodyStateRootDiff(
+                        reth_primitives_traits::GotExpected { got: state_root, expected: block.header().state_root() }.into(),
+                    ).into(),
                 ).into())
             }
         }

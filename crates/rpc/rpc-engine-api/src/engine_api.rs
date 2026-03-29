@@ -954,9 +954,11 @@ where
     /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
     async fn new_payload_v1(&self, payload: ExecutionPayloadV1, telos_extra: Option<TelosEngineAPIExtraFields>) -> RpcResult<PayloadStatus> {
+        eprintln!("TELOS RPC: new_payload_v1 called, telos_extra is_some={}", telos_extra.is_some());
         trace!(target: "rpc::engine", "Serving engine_newPayloadV1");
-        // Store Telos extra fields for the executor
+        // Store Telos extra fields for the executor to pick up by block hash
         if let Some(extra) = telos_extra {
+            eprintln!("TELOS: Received extra fields for block {:?}", payload.block_hash);
             extra_fields_store::store_extra_fields(payload.block_hash, extra);
         }
         let payload =

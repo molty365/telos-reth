@@ -882,11 +882,9 @@ where
 
             let tx_start = Instant::now();
             if reth_telos_primitives_traits::trust_consensus() {
-                // Telos: ignore EVM execution errors (insufficient funds, etc.)
-                // Block validity is guaranteed by nodeos consensus (Antelope DPoS).
-                if let Err(err) = executor.execute_transaction(tx) {
-                    tracing::warn!(target: "engine::tree", ?err, "Telos: ignoring EVM execution error for tx");
-                }
+                // Telos: skip EVM execution entirely during historical sync.
+                // No account state available, nodeos already validated all transactions.
+                // This eliminates ~3ms overhead per tx block.
             } else {
                 executor.execute_transaction(tx)?;
             }

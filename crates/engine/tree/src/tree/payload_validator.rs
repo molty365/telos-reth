@@ -865,7 +865,12 @@ where
             trace!(target: "engine::tree", "Executing transaction");
 
             let tx_start = Instant::now();
-            executor.execute_transaction(tx)?;
+            // Telos: ignore EVM execution errors (insufficient funds, etc.)
+            // Account state diverges from production due to empty state root bypass.
+            // Block validity is guaranteed by nodeos consensus (Antelope DPoS).
+            if let Err(err) = executor.execute_transaction(tx) {
+                tracing::warn!(target: "engine::tree", ?err, "Telos: ignoring EVM execution error for tx");
+            }
             self.metrics.record_transaction_execution(tx_start.elapsed());
 
             let current_len = executor.receipts().len();

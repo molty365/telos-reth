@@ -17,7 +17,7 @@ use alloy_evm::Evm;
 use alloy_primitives::B256;
 
 use crate::tree::payload_processor::receipt_root_task::{IndexedReceipt, ReceiptRootTaskHandle};
-use reth_chain_state::{CanonicalInMemoryState, DeferredTrieData, ExecutedBlock, LazyOverlay};
+use reth_chain_state::{CanonicalInMemoryState, ComputedTrieData, DeferredTrieData, ExecutedBlock, LazyOverlay};
 use reth_consensus::{ConsensusError, FullConsensus, ReceiptRootBloom};
 use reth_engine_primitives::{
     ConfigureEngineEvm, ExecutableTxIterator, ExecutionPayload, InvalidBlockHook, PayloadValidator,
@@ -1409,13 +1409,21 @@ where
         let ancestors: Vec<DeferredTrieData> =
             overlay_blocks.iter().rev().map(|b| b.trie_data_handle()).collect();
 
-        // Create deferred handle with fallback inputs in case the background task hasn't completed.
-        let deferred_trie_data = DeferredTrieData::pending(
-            Arc::new(hashed_state),
-            Arc::new(trie_output),
-            anchor_hash,
-            ancestors,
-        );
+        // Telos: if trie_output is empty (Telos bypass), skip deferred computation entirely.
+        // Use DeferredTrieData::ready() with empty ComputedTrieData to avoid expensive
+        // trie computation on blocks we cannot properly execute (empty EVM state).
+        let deferred_trie_data = if trie_output.is_empty() {
+            // Telos: empty trie_output means we skipped serial state root computation.
+            // Use ready() with default ComputedTrieData to avoid expensive background trie task.
+            DeferredTrieData::ready(ComputedTrieData::default())
+        } else {
+            DeferredTrieData::pending(
+                Arc::new(hashed_state),
+                Arc::new(trie_output),
+                anchor_hash,
+                ancestors,
+            )
+        };
         let deferred_handle_task = deferred_trie_data.clone();
         let block_validation_metrics = self.metrics.block_validation.clone();
 

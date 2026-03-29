@@ -631,7 +631,7 @@ where
                 );
             } else {
                 return Err(InsertBlockError::new(
-                    block.clone(),
+                    block.clone_sealed_block(),
                     reth_consensus::ConsensusError::BodyStateRootDiff(
                         reth_primitives_traits::GotExpected { got: state_root, expected: block.header().state_root() }.into(),
                     ).into(),

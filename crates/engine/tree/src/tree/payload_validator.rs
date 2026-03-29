@@ -699,6 +699,38 @@ where
             .build();
 
         let spec_id = *env.evm_env.spec_id();
+        // Telos: Load extra fields and apply pre-execution account creations
+        let block_hash_for_extra = input.hash();
+        eprintln!("TELOS VALIDATOR: execute_block called for hash {:?}", block_hash_for_extra);
+        let extra_path = format!("/tmp/telos-extra-fields/{:?}.json", block_hash_for_extra);
+        eprintln!("TELOS VALIDATOR: checking file {}", extra_path);
+        eprintln!("TELOS VALIDATOR: file exists={}", std::path::Path::new(&extra_path).exists());
+        if let Some(extra) = reth_telos_rpc_engine_api::extra_fields_store::take_extra_fields(&block_hash_for_extra) {
+            if let Some(creates) = &extra.new_addresses_using_create {
+                for (_tx_idx, addr_u256) in creates {
+                    let addr = alloy_primitives::Address::from_word(alloy_primitives::B256::from(*addr_u256));
+                    db.insert_not_existing(addr);
+                    let mut account_state = std::collections::HashMap::default();
+                    account_state.insert(addr, revm::state::Account {
+                        info: revm::state::AccountInfo {
+                            balance: alloy_primitives::U256::ZERO,
+                            nonce: 1,
+                            code: Some(revm::bytecode::Bytecode::default()),
+                            code_hash: alloy_primitives::B256::from(revm::primitives::KECCAK_EMPTY),
+                            account_id: Some(0),
+                        },
+                        storage: std::collections::HashMap::default(),
+                        status: revm::state::AccountStatus::Touched | revm::state::AccountStatus::LoadedAsNotExisting,
+                        original_info: Box::new(revm::state::AccountInfo::default()),
+                        transaction_id: 0,
+                    });
+                    use revm::DatabaseCommit;
+                    db.commit(account_state);
+                    eprintln!("TELOS: Pre-created account {:?} for block", addr);
+                }
+            }
+        }
+
         let evm = self.evm_config.evm_with_env(&mut db, env.evm_env);
         let ctx =
             self.execution_ctx_for(input).map_err(|e| InsertBlockErrorKind::Other(Box::new(e)))?;

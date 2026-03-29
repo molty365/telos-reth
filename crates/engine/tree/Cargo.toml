@@ -11,6 +11,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+reth-telos-rpc-engine-api.workspace = true
 # reth
 reth-chain-state = { workspace = true, features = ["rayon"] }
 reth-chainspec = { workspace = true, optional = true }

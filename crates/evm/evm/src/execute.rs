@@ -557,7 +557,9 @@ where
         // Telos: Apply pre-execution account creations from consensus client extra fields
         let block_hash = block.hash();
         let block_number = block.number();
+        eprintln!("TELOS EXEC: block {} hash {:?}", block_number, block_hash);
         let extra = reth_telos_rpc_engine_api::extra_fields_store::take_extra_fields(&block_hash);
+        eprintln!("TELOS EXEC: found={}", extra.is_some());
         if extra.is_some() { eprintln!("TELOS: Extra fields found for block {}", block_number); }
         if let Some(extra) = extra {
             if let Some(creates) = &extra.new_addresses_using_create {

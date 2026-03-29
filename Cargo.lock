@@ -8877,6 +8877,7 @@ dependencies = [
  "reth-stages-api",
  "reth-static-file",
  "reth-tasks",
+ "reth-telos-rpc-engine-api",
  "reth-testing-utils",
  "reth-tracing",
  "reth-trie",
@@ -10995,6 +10996,7 @@ dependencies = [
  "revm",
  "revm-primitives",
  "serde",
+ "serde_json",
  "sha2",
  "tracing",
 ]

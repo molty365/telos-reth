@@ -27,7 +27,6 @@ use reth_payload_primitives::{
 };
 use reth_primitives_traits::{Block, BlockBody};
 use reth_rpc_api::{EngineApiServer, IntoEngineApiRpcModule};
-use reth_telos_rpc_engine_api::{structs::TelosEngineAPIExtraFields, extra_fields_store};
 use reth_storage_api::{BlockReader, HeaderProvider, StateProviderFactory};
 use reth_tasks::TaskSpawner;
 use reth_transaction_pool::TransactionPool;
@@ -953,14 +952,8 @@ where
     /// Handler for `engine_newPayloadV1`
     /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
-    async fn new_payload_v1(&self, payload: ExecutionPayloadV1, telos_extra: Option<TelosEngineAPIExtraFields>) -> RpcResult<PayloadStatus> {
-        eprintln!("TELOS RPC: new_payload_v1 called, telos_extra is_some={}", telos_extra.is_some());
+    async fn new_payload_v1(&self, payload: ExecutionPayloadV1) -> RpcResult<PayloadStatus> {
         trace!(target: "rpc::engine", "Serving engine_newPayloadV1");
-        // Store Telos extra fields for the executor to pick up by block hash
-        if let Some(extra) = telos_extra {
-            eprintln!("TELOS: Received extra fields for block {:?}", payload.block_hash);
-            extra_fields_store::store_extra_fields(payload.block_hash, extra);
-        }
         let payload =
             ExecutionData { payload: payload.into(), sidecar: ExecutionPayloadSidecar::none() };
         Ok(self.new_payload_v1_metered(payload).await?)

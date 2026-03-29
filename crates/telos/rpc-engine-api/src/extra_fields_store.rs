@@ -1,37 +1,34 @@
-//! Global store for Telos extra fields.
+//! File-based store for Telos extra fields.
 //!
-//! This is a temporary bridge to pass TelosEngineAPIExtraFields from the RPC handler
-//! to the block executor without modifying the entire execution pipeline.
+//! The consensus client writes extra fields to /tmp/telos-extra-fields/<block_hash>.json
+//! before sending engine_newPayloadV1. The executor reads and removes the file.
 
 use crate::structs::TelosEngineAPIExtraFields;
 use alloy_primitives::B256;
-use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex};
+use std::path::PathBuf;
 
-/// Global store mapping block hash → extra fields
-static EXTRA_FIELDS: LazyLock<Mutex<HashMap<B256, TelosEngineAPIExtraFields>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+fn store_dir() -> PathBuf {
+    PathBuf::from("/tmp/telos-extra-fields")
+}
+
+fn file_path(block_hash: &B256) -> PathBuf {
+    store_dir().join(format!("{:?}.json", block_hash))
+}
 
 /// Store extra fields for a block hash.
 pub fn store_extra_fields(block_hash: B256, fields: TelosEngineAPIExtraFields) {
-    if let Ok(mut map) = EXTRA_FIELDS.lock() {
-        // Keep only last 1000 entries to prevent unbounded growth
-        if map.len() > 1000 {
-            let keys: Vec<B256> = map.keys().take(500).cloned().collect();
-            for key in keys {
-                map.remove(&key);
-            }
-        }
-        map.insert(block_hash, fields);
+    let dir = store_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    let path = file_path(&block_hash);
+    if let Ok(json) = serde_json::to_string(&fields) {
+        let _ = std::fs::write(&path, json);
     }
 }
 
 /// Retrieve and remove extra fields for a block hash.
 pub fn take_extra_fields(block_hash: &B256) -> Option<TelosEngineAPIExtraFields> {
-    EXTRA_FIELDS.lock().ok()?.remove(block_hash)
-}
-
-/// Retrieve extra fields without removing (for retry scenarios).
-pub fn get_extra_fields(block_hash: &B256) -> Option<TelosEngineAPIExtraFields> {
-    EXTRA_FIELDS.lock().ok()?.get(block_hash).cloned()
+    let path = file_path(block_hash);
+    let data = std::fs::read_to_string(&path).ok()?;
+    let _ = std::fs::remove_file(&path);
+    serde_json::from_str(&data).ok()
 }

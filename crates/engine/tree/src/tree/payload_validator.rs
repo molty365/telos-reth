@@ -1295,22 +1295,16 @@ where
 
         // Telos: Fallback when parent hash isn't indexed in DB
         {
-            use std::io::Write;
             let best = self.provider.best_block_number().unwrap_or(0);
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
-                let _ = writeln!(f, "TELOS FALLBACK: hash={:?} best_block={}", hash, best);
-            }
             if best > 0 {
+                debug!(target: "engine::tree::payload_validator", %hash, %best, "Telos: using best persisted block state");
                 if let Some(header) = self.provider.sealed_header(best).ok().flatten() {
-                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
-                        let _ = writeln!(f, "TELOS FALLBACK: using header hash={:?}", header.hash());
-                    }
                     return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
-                } else {
-                    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/telos-exec-debug.log") {
-                        let _ = writeln!(f, "TELOS FALLBACK: sealed_header({}) returned None!", best);
-                    }
                 }
+            } else if reth_telos_primitives_traits::trust_consensus() {
+                // Fresh start with trust_consensus: use genesis state
+                debug!(target: "engine::tree::payload_validator", %hash, "Telos: trust_consensus fresh start, using genesis state");
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
             }
         }
 

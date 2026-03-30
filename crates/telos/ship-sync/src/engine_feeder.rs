@@ -3,7 +3,6 @@
 //! Embeds telos-translator-rs directly and feeds blocks to reth's Engine API
 //! via local HTTP, eliminating the need for a separate consensus client binary.
 
-use alloy_primitives::B256;
 use alloy_rpc_types_engine::ForkchoiceState;
 use eyre::{Context, Result};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
@@ -13,7 +12,7 @@ use telos_translator_rs::block::TelosEVMBlock;
 use telos_translator_rs::translator::{Translator, TranslatorConfig};
 use telos_translator_rs::types::translator_types::ChainId;
 use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// Configuration for the embedded SHIP sync.
 #[derive(Debug, Clone)]
@@ -191,9 +190,7 @@ async fn run_ship_sync(config: ShipSyncConfig) -> Result<()> {
 
     // HTTP client for Engine API
     let client = reqwest::Client::new();
-    let mut batch: Vec<TelosEVMBlock> = Vec::new();
     let mut block_count: u64 = 0;
-    let chain_id = ChainId(config.chain_id);
 
     info!("Waiting for blocks from translator...");
 
@@ -207,70 +204,51 @@ async fn run_ship_sync(config: ShipSyncConfig) -> Result<()> {
         };
 
         let block_num = block.block_num;
-        let block_hash = block.block_hash;
+        let _block_hash = block.block_hash;
         block_count += 1;
 
         if block_count % 1000 == 0 {
             info!(block_num, total_processed = block_count, "Processing blocks...");
         }
 
-        let is_lib = block.is_lib(&chain_id);
-        batch.push(block);
-
-        // Flush batch when: at LIB, or batch is full
-        let flush = is_lib || batch.len() >= config.batch_size;
-        if !flush {
-            continue;
-        }
-
-        // Send batch via Engine API
-        if let Err(e) = send_batch(&client, &config, &batch).await {
-            error!(block_num, error = %e, "Failed to send batch to Engine API");
-            // Wait and retry
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            if let Err(e) = send_batch(&client, &config, &batch).await {
-                error!(block_num, error = %e, "Retry failed, continuing...");
+        // Send each block individually to allow persistence between blocks
+        // This ensures the state provider can find parent state for each new block
+        if let Err(e) = send_single_block(&client, &config, &block).await {
+            warn!(block_num, error = %e, "Failed to send block, retrying after delay...");
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            if let Err(e) = send_single_block(&client, &config, &block).await {
+                error!(block_num, error = %e, "Retry failed, skipping block");
             }
         }
-
-        batch.clear();
     }
 
     translator_handle.abort();
     Ok(())
 }
 
-async fn send_batch(
+async fn send_single_block(
     client: &reqwest::Client,
     config: &ShipSyncConfig,
-    batch: &[TelosEVMBlock],
+    block: &TelosEVMBlock,
 ) -> Result<()> {
-    if batch.is_empty() {
-        return Ok(());
-    }
+    // Send newPayload
+    engine_rpc(
+        client,
+        &config.engine_api_url,
+        &config.jwt_secret,
+        "engine_newPayloadV1",
+        json!([
+            block.execution_payload,
+            block.extra_fields,
+        ]),
+    )
+    .await?;
 
-    // Send newPayload for each block in batch
-    let requests: Vec<(&str, Value)> = batch
-        .iter()
-        .map(|block| {
-            (
-                "engine_newPayloadV1",
-                json!([
-                    block.execution_payload,
-                    block.extra_fields,
-                ]),
-            )
-        })
-        .collect();
-
-    engine_rpc_batch(client, &config.engine_api_url, &config.jwt_secret, requests).await?;
-
-    // Send fork choice update for the last block
-    let last_block = batch.last().unwrap();
+    // Send fork choice update
     let fork_choice_state = ForkchoiceState {
-        head_block_hash: last_block.block_hash,
-        safe_block_hash: last_block.block_hash,
-        finalized_block_hash: last_block.block_hash,
+        head_block_hash: block.block_hash,
+        safe_block_hash: block.block_hash,
+        finalized_block_hash: block.block_hash,
     };
 
     engine_rpc(
@@ -281,12 +259,6 @@ async fn send_batch(
         json!([fork_choice_state]),
     )
     .await?;
-
-    debug!(
-        block_num = last_block.block_num,
-        batch_size = batch.len(),
-        "Batch sent successfully"
-    );
 
     Ok(())
 }

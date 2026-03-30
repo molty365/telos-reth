@@ -39,6 +39,24 @@ fn main() {
         let telos_rpc = telos_args.telos_endpoint.clone();
         let block_delta = telos_args.block_delta.clone();
 
+        // Capture SHIP sync args before telos_args is moved
+        let ship_endpoint = telos_args.ship_endpoint.clone();
+        let ship_chain_id = telos_args.chain_id;
+        let ship_evm_start_block = telos_args.evm_start_block;
+        let ship_prev_hash = telos_args.prev_hash.clone();
+        let ship_validate_hash = telos_args.validate_hash.clone();
+        let ship_evm_deploy_block = telos_args.evm_deploy_block;
+        let ship_evm_stop_block = telos_args.evm_stop_block;
+        let ship_batch_size = telos_args.ship_batch_size;
+        let consensus_client_binary = telos_args.consensus_client_binary.clone();
+        // telos_endpoint doubles as the Antelope HTTP endpoint for the translator
+        let ship_http_endpoint = telos_args.telos_endpoint.clone();
+
+        // Capture the jwt.hex path and data dir from the builder config before launch
+        let datadir = builder.config().datadir();
+        let jwt_hex_path = datadir.jwt();
+        let data_dir_path = datadir.data_dir().to_path_buf();
+
         let engine_tree_config = TreeConfig::default()
             .with_max_execute_block_batch_size(telos_args.max_execute_block_batch_size);
 
@@ -62,6 +80,42 @@ fn main() {
                 builder.launch_with(launcher)
             })
             .await?;
+
+        // Start embedded SHIP sync if configured
+        if let Some(ship_ep) = ship_endpoint {
+            let chain_id = ship_chain_id.expect("--telos.chain_id is required when --telos.ship_endpoint is set");
+            let evm_start_block = ship_evm_start_block.expect("--telos.evm_start_block is required when --telos.ship_endpoint is set");
+            let prev_hash = ship_prev_hash.unwrap_or_else(|| "0000000000000000000000000000000000000000000000000000000000000000".to_string());
+            let http_endpoint = ship_http_endpoint.expect("--telos.telos_endpoint is required when --telos.ship_endpoint is set (used as Antelope HTTP endpoint)");
+
+            // Get the Engine API URL from the auth server handle
+            let engine_api_url = handle.node.auth_server_handle().http_url();
+
+            // Read JWT secret from the data directory's jwt.hex
+            let jwt_secret = std::fs::read_to_string(&jwt_hex_path)
+                .unwrap_or_else(|e| panic!("Failed to read JWT secret from {}: {}", jwt_hex_path.display(), e))
+                .trim()
+                .to_string();
+
+            let ship_sync_config = reth_telos_ship_sync::ShipSyncConfig {
+                binary_path: consensus_client_binary.map(std::path::PathBuf::from),
+                ship_endpoint: ship_ep,
+                http_endpoint,
+                engine_api_url,
+                jwt_secret,
+                chain_id,
+                evm_start_block,
+                prev_hash,
+                validate_hash: ship_validate_hash,
+                evm_deploy_block: ship_evm_deploy_block,
+                evm_stop_block: ship_evm_stop_block,
+                batch_size: ship_batch_size,
+                data_path: data_dir_path.clone(),
+            };
+
+            info!("Starting embedded SHIP sync");
+            let _ship_handle = reth_telos_ship_sync::spawn_ship_sync(ship_sync_config);
+        }
 
         match two_way_storage_compare {
             true => {

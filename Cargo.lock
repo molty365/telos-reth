@@ -11006,6 +11006,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reth-telos-ship-sync"
+version = "1.11.3"
+dependencies = [
+ "eyre",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "reth-testing-utils"
 version = "1.11.3"
 dependencies = [
@@ -12696,6 +12705,7 @@ dependencies = [
  "reth-provider",
  "reth-telos-primitives-traits",
  "reth-telos-rpc",
+ "reth-telos-ship-sync",
  "tracing",
 ]
 

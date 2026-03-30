@@ -47,6 +47,44 @@ pub struct TelosArgs {
     /// skips state root recomputation, and bypasses static file tx number checks.
     #[arg(long = "telos.trust_consensus", default_value = "true")]
     pub trust_consensus: bool,
+
+    /// SHIP WebSocket endpoint for embedded sync (e.g. ws://localhost:29999).
+    /// When set, the translator runs inside reth and feeds blocks directly.
+    #[arg(long = "telos.ship_endpoint")]
+    pub ship_endpoint: Option<String>,
+
+    /// Telos chain ID (40 for mainnet, 41 for testnet)
+    #[arg(long = "telos.chain_id")]
+    pub chain_id: Option<u64>,
+
+    /// EVM start block number for the translator
+    #[arg(long = "telos.evm_start_block")]
+    pub evm_start_block: Option<u32>,
+
+    /// Previous block hash for translator initialization
+    #[arg(long = "telos.prev_hash")]
+    pub prev_hash: Option<String>,
+
+    /// Expected hash of the start block for validation (optional)
+    #[arg(long = "telos.validate_hash")]
+    pub validate_hash: Option<String>,
+
+    /// EVM deploy block (skip events before this)
+    #[arg(long = "telos.evm_deploy_block")]
+    pub evm_deploy_block: Option<u32>,
+
+    /// EVM stop block (optional, stop sync at this block)
+    #[arg(long = "telos.evm_stop_block")]
+    pub evm_stop_block: Option<u32>,
+
+    /// Batch size for Engine API newPayload calls (default: 50)
+    #[arg(long = "telos.ship_batch_size", default_value = "50")]
+    pub ship_batch_size: usize,
+
+    /// Path to the telos-consensus-client binary.
+    /// If not set, searches PATH for "telos-consensus-client".
+    #[arg(long = "telos.consensus_client_binary")]
+    pub consensus_client_binary: Option<String>,
 }
 
 impl From<TelosArgs> for TelosClientArgs {

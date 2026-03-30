@@ -160,6 +160,7 @@ members = [
     "crates/telos/primitives-traits/",
     "crates/telos/rpc/",
     "crates/telos/rpc-engine-api/",
+    "crates/telos/ship-sync/",
 ]
 default-members = ["bin/reth"]
 exclude = ["docs/cli"]
@@ -751,6 +752,7 @@ reth-telos-rpc = { path = "crates/telos/rpc" }
 reth-telos-rpc-engine-api = { path = "crates/telos/rpc-engine-api" }
 reth-telos-primitives-traits = { path = "crates/telos/primitives-traits" }
 antelope-client = { git = "https://github.com/telosnetwork/antelope-rs.git", branch = "master" }
+reth-telos-ship-sync = { path = "crates/telos/ship-sync" }
 
 
 [patch.crates-io]

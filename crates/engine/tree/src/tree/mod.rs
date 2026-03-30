@@ -672,8 +672,15 @@ where
                     }
                     InsertPayloadOk::Inserted(BlockStatus::Disconnected { .. }) |
                     InsertPayloadOk::AlreadySeen(BlockStatus::Disconnected { .. }) => {
-                        // not known to be invalid, but we don't know anything else
-                        PayloadStatusEnum::Syncing
+                        if reth_telos_primitives_traits::trust_consensus() {
+                            // Telos: trust consensus client — treat disconnected blocks as valid
+                            // since they come from nodeos and don't need parent chain verification
+                            latest_valid_hash = Some(block_hash);
+                            PayloadStatusEnum::Valid
+                        } else {
+                            // not known to be invalid, but we don't know anything else
+                            PayloadStatusEnum::Syncing
+                        }
                     }
                 };
 
@@ -2660,23 +2667,29 @@ where
                 return Err(InsertBlockError::new(block, err.into()).into());
             }
             Ok(None) => {
-                let block = convert_to_block(self, input)?;
+                if reth_telos_primitives_traits::trust_consensus() {
+                    // Telos: trust_consensus — proceed without parent state.
+                    // We'll skip execution and insert the block directly.
+                    debug!(target: "engine::tree", block=?block_num_hash, "Telos: trust_consensus, proceeding without parent state");
+                } else {
+                    let block = convert_to_block(self, input)?;
 
-                // we don't have the state required to execute this block, buffering it and find the
-                // missing parent block
-                let missing_ancestor = self
-                    .state
-                    .buffer
-                    .lowest_ancestor(&block.parent_hash())
-                    .map(|block| block.parent_num_hash())
-                    .unwrap_or_else(|| block.parent_num_hash());
+                    // we don't have the state required to execute this block, buffering it and find the
+                    // missing parent block
+                    let missing_ancestor = self
+                        .state
+                        .buffer
+                        .lowest_ancestor(&block.parent_hash())
+                        .map(|block| block.parent_num_hash())
+                        .unwrap_or_else(|| block.parent_num_hash());
 
-                self.state.buffer.insert_block(block);
+                    self.state.buffer.insert_block(block);
 
-                return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
-                    head: self.state.tree_state.current_canonical_head,
-                    missing_ancestor,
-                }))
+                    return Ok(InsertPayloadOk::Inserted(BlockStatus::Disconnected {
+                        head: self.state.tree_state.current_canonical_head,
+                        missing_ancestor,
+                    }))
+                }
             }
             Ok(Some(_)) => {}
         }

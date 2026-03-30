@@ -3025,9 +3025,16 @@ where
             } else if reth_telos_primitives_traits::trust_consensus() {
                 // Fresh start with trust_consensus: use genesis state (block 0)
                 // The consensus client provides execution results, so we don't need
-                // accurate parent state - just a valid state provider to attach blocks to.
-                debug!(target: "engine::tree", %hash, "Telos: trust_consensus fresh start, using genesis state");
-                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
+                // accurate parent state — just a valid state provider to attach blocks to.
+                // Use the genesis block hash (which exists in DB) instead of the
+                // parent block hash (which doesn't exist yet).
+                if let Ok(Some(genesis_header)) = self.provider.sealed_header(0) {
+                    let genesis_hash = genesis_header.hash();
+                    debug!(target: "engine::tree", %hash, %genesis_hash, "Telos: trust_consensus fresh start, using genesis state");
+                    return Ok(Some(StateProviderBuilder::new(self.provider.clone(), genesis_hash, None)))
+                } else {
+                    debug!(target: "engine::tree", %hash, "Telos: trust_consensus fresh start, no genesis found, returning None");
+                }
             }
         }
 

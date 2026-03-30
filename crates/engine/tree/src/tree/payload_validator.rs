@@ -1318,9 +1318,15 @@ where
                     return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
                 }
             } else if reth_telos_primitives_traits::trust_consensus() {
-                // Fresh start with trust_consensus: use genesis state
-                debug!(target: "engine::tree::payload_validator", %hash, "Telos: trust_consensus fresh start, using genesis state");
-                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), hash, None)))
+                // Fresh start with trust_consensus: use genesis state (block 0)
+                // Use genesis hash which exists in DB, not the parent hash which doesn't.
+                if let Ok(Some(genesis_header)) = self.provider.sealed_header(0) {
+                    let genesis_hash = genesis_header.hash();
+                    debug!(target: "engine::tree::payload_validator", %hash, %genesis_hash, "Telos: trust_consensus fresh start, using genesis state");
+                    return Ok(Some(StateProviderBuilder::new(self.provider.clone(), genesis_hash, None)))
+                } else {
+                    debug!(target: "engine::tree::payload_validator", %hash, "Telos: trust_consensus fresh start, no genesis found");
+                }
             }
         }
 

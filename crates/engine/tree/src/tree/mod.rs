@@ -2992,6 +2992,29 @@ where
     where
         P: BlockReader + StateProviderFactory + StateReader + Clone,
     {
+        // Telos: when trust_consensus is on, always return a valid state provider
+        // based on the latest available state. We don't need accurate parent state
+        // since execution results come from the consensus client.
+        if reth_telos_primitives_traits::trust_consensus() {
+            // Try in-memory first
+            if let Some((historical, blocks)) = self.state.tree_state.blocks_by_hash(hash) {
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), historical, Some(blocks))))
+            }
+            // Try latest persisted
+            if let Ok(best) = self.provider.best_block_number() {
+                if best > 0 {
+                    if let Some(header) = self.provider.sealed_header(best).ok().flatten() {
+                        return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
+                    }
+                }
+            }
+            // Fallback to genesis
+            if let Ok(Some(genesis)) = self.provider.sealed_header(0) {
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), genesis.hash(), None)))
+            }
+            return Ok(None)
+        }
+
         if let Some((historical, blocks)) = self.state.tree_state.blocks_by_hash(hash) {
             debug!(target: "engine::tree", %hash, %historical, "found canonical state for block in memory, creating provider builder");
             // the block leads back to the canonical chain

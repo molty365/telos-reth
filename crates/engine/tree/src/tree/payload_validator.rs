@@ -1295,6 +1295,24 @@ where
         hash: B256,
         state: &EngineApiTreeState<N>,
     ) -> ProviderResult<Option<StateProviderBuilder<N, P>>> {
+        // Telos: when trust_consensus is on, always return a valid state provider
+        if reth_telos_primitives_traits::trust_consensus() {
+            if let Some((historical, blocks)) = state.tree_state.blocks_by_hash(hash) {
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), historical, Some(blocks))))
+            }
+            if let Ok(best) = self.provider.best_block_number() {
+                if best > 0 {
+                    if let Some(header) = self.provider.sealed_header(best).ok().flatten() {
+                        return Ok(Some(StateProviderBuilder::new(self.provider.clone(), header.hash(), None)))
+                    }
+                }
+            }
+            if let Ok(Some(genesis)) = self.provider.sealed_header(0) {
+                return Ok(Some(StateProviderBuilder::new(self.provider.clone(), genesis.hash(), None)))
+            }
+            return Ok(None)
+        }
+
         if let Some((historical, blocks)) = state.tree_state.blocks_by_hash(hash) {
             debug!(target: "engine::tree::payload_validator", %hash, %historical, "found canonical state for block in memory, creating provider builder");
             // the block leads back to the canonical chain

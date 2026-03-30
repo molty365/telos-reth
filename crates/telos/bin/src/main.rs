@@ -98,7 +98,6 @@ fn main() {
                 .to_string();
 
             let ship_sync_config = reth_telos_ship_sync::ShipSyncConfig {
-                binary_path: consensus_client_binary.map(std::path::PathBuf::from),
                 ship_endpoint: ship_ep,
                 http_endpoint,
                 engine_api_url,

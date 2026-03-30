@@ -15,7 +15,6 @@ use alloy_rlp::{
     length_of_length, Buf, BufMut, Decodable, Encodable, EMPTY_LIST_CODE, EMPTY_STRING_CODE,
 };
 use core::mem;
-use alloy_rpc_types::ConversionError;
 use reth_codecs::Compact;
 use crate::TelosBlockExtension;
 

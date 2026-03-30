@@ -14,3 +14,18 @@ workspace = true
 eyre.workspace = true
 tokio = { workspace = true, features = ["sync", "process", "io-util", "rt", "time"] }
 tracing.workspace = true
+
+# Telos translator (SHIP block reader)
+telos-translator-rs = { git = "https://github.com/molty365/telos-consensus-client", branch = "feat/alloy-1.x-upgrade" }
+
+# For Engine API client
+reqwest = { version = "0.12", features = ["json"] }
+serde = { workspace = true }
+serde_json.workspace = true
+alloy-primitives.workspace = true
+alloy-rpc-types-engine.workspace = true
+reth-telos-rpc-engine-api.workspace = true
+
+# JWT auth
+jsonwebtoken = "9"
+hex = "0.4"

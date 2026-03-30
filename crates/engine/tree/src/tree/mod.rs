@@ -2365,7 +2365,16 @@ where
         // Happy path, canonical chain is ahead or equal to persisted chain.
         // Walk canonical chain back to make sure that it connects to persisted chain.
         while canonical.number > persisted.number {
-            canonical = parent_num_hash(canonical)?;
+            match parent_num_hash(canonical) {
+                Ok(parent) => canonical = parent,
+                Err(_) if reth_telos_primitives_traits::trust_consensus() => {
+                    // Telos: can't walk back to persisted block (disconnected chain).
+                    // This is expected when starting mid-chain. Skip validation.
+                    debug!(target: "engine::tree", ?canonical, ?persisted, "Telos: trust_consensus, skipping canonical chain validation (disconnected)");
+                    return Ok(None);
+                }
+                Err(e) => return Err(e),
+            }
         }
 
         // If we've reached persisted tip by walking the canonical chain back, everything is fine.

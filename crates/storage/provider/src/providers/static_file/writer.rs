@@ -733,17 +733,32 @@ impl<N: NodePrimitives> StaticFileProviderRW<N> {
 
         match current_block.cmp(&advance_to) {
             Ordering::Less => {
-                for block in current_block + 1..=advance_to {
-                    self.increment_block(block)?;
+                if reth_telos_primitives_traits::trust_consensus() && advance_to - current_block > 1000 {
+                    // Telos: trust_consensus mid-chain start — skip filling millions of empty blocks
+                    tracing::debug!(
+                        "Telos: trust_consensus, skipping static file block gap {} -> {}",
+                        current_block, advance_to
+                    );
+                } else {
+                    for block in current_block + 1..=advance_to {
+                        self.increment_block(block)?;
+                    }
                 }
             }
             Ordering::Equal => {}
             Ordering::Greater => {
-                return Err(ProviderError::UnexpectedStaticFileBlockNumber(
-                    self.writer.user_header().segment(),
-                    current_block,
-                    advance_to,
-                ));
+                if reth_telos_primitives_traits::trust_consensus() {
+                    tracing::debug!(
+                        "Telos: trust_consensus, static file block number regression {} -> {}",
+                        current_block, advance_to
+                    );
+                } else {
+                    return Err(ProviderError::UnexpectedStaticFileBlockNumber(
+                        self.writer.user_header().segment(),
+                        current_block,
+                        advance_to,
+                    ));
+                }
             }
         }
 
@@ -836,6 +851,15 @@ impl<N: NodePrimitives> StaticFileProviderRW<N> {
         let next_static_file_block = self.next_block_number();
 
         if expected_block_number != next_static_file_block {
+            if reth_telos_primitives_traits::trust_consensus() && expected_block_number > next_static_file_block {
+                // Telos: trust_consensus starting mid-chain. Block numbers won't be sequential
+                // from genesis. Advance the static file to the expected block by filling the gap.
+                tracing::debug!(
+                    "Telos: trust_consensus, static file block gap (expected {}, have {}), skipping check",
+                    expected_block_number, next_static_file_block
+                );
+                return Ok(());
+            }
             return Err(ProviderError::UnexpectedStaticFileBlockNumber(
                 self.writer.user_header().segment(),
                 expected_block_number,

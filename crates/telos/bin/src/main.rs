@@ -63,7 +63,11 @@ fn main() {
         let handle = builder
             .node(TelosNode::new(telos_args.clone()))
             .extend_rpc_modules(move |ctx| {
-                if telos_args.telos_endpoint.is_some() {
+                if telos_args.telos_endpoint.is_some()
+                    && telos_args.signer_account.is_some()
+                    && telos_args.signer_permission.is_some()
+                    && telos_args.signer_key.is_some()
+                {
                     ctx.registry
                         .eth_api()
                         .set_telos_client(TelosClient::new(telos_args.into()));

@@ -1158,7 +1158,11 @@ where
 
         // now validate against the parent
         let _enter = debug_span!(target: "engine::tree::payload_validator", "validate_header_against_parent").entered();
-        if let Err(e) =
+        if reth_telos_primitives_traits::trust_consensus() {
+            // Telos: skip parent header validation — blocks from consensus client
+            // may not have a matching parent in the DB (e.g., starting from a mid-chain block)
+            debug!(target: "engine::tree::payload_validator", "Telos: trust_consensus, skipping parent header validation");
+        } else if let Err(e) =
             self.consensus.validate_header_against_parent(block.sealed_header(), parent_block)
         {
             warn!(target: "engine::tree::payload_validator", ?block, "Failed to validate header {} against parent: {e}", block.hash());

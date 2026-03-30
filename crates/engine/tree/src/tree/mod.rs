@@ -755,6 +755,13 @@ where
                 current_number -= 1;
                 new_chain.push(block);
             } else {
+                if reth_telos_primitives_traits::trust_consensus() {
+                    // Telos: trust_consensus — can't walk back to canonical head (disconnected chain).
+                    // Treat whatever we have as a commit. The consensus client guarantees ordering.
+                    debug!(target: "engine::tree", current_hash=?current_hash, "Telos: trust_consensus, committing partial chain");
+                    new_chain.reverse();
+                    return Ok(Some(NewCanonicalChain::Commit { new: new_chain }))
+                }
                 warn!(target: "engine::tree", current_hash=?current_hash, "Sidechain block not found in TreeState");
                 // This should never happen as we're walking back a chain that should connect to
                 // the canonical chain

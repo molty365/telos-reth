@@ -52,8 +52,14 @@ fn telos_ensure_well_formed_payload(
     // Parse the block (this sets base_fee_per_gas=Some(...) in the header)
     let block: Block = payload.try_into_block_with_sidecar(&sidecar)?;
 
+    // The legacy Telos chain stores post-transition headers without base_fee_per_gas in the
+    // canonical header/RPC representation, even though the execution payload carries a non-zero
+    // base fee. Preserve that legacy representation here before persisting the block so RPC block
+    // queries and downstream hash lineage stay compatible with existing Telos infra.
+    let alloy_consensus::Block { mut header, body } = block;
+    header.base_fee_per_gas = None;
+
     // Seal with the trusted hash instead of recomputing via seal_slow()
-    let alloy_consensus::Block { header, body } = block;
     let sealed_block = SealedBlock::<Block>::from_parts_unchecked(header, body, trusted_hash);
 
     // Still validate EIP structural requirements (just not the hash)

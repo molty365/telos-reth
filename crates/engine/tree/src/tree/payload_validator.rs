@@ -15,6 +15,8 @@ use alloy_eip7928::BlockAccessList;
 use alloy_eips::{eip1898::BlockWithParent, eip4895::Withdrawal, NumHash};
 use alloy_evm::Evm;
 use alloy_primitives::B256;
+use reth_telos_rpc_engine_api::telos_extra_fields_store;
+use reth_telos_rpc_engine_api::compare::compare_state_diffs;
 
 use crate::tree::payload_processor::receipt_root_task::{IndexedReceipt, ReceiptRootTaskHandle};
 use reth_chain_state::{CanonicalInMemoryState, DeferredTrieData, ExecutedBlock, LazyOverlay};
@@ -760,6 +762,30 @@ where
         // Merge transitions into bundle state
         debug_span!(target: "engine::tree", "merge transitions")
             .in_scope(|| db.merge_transitions(BundleRetention::Reverts));
+
+        // TELOS: Apply native state diffs from the consensus client.
+        // The Telos consensus client sends extra fields alongside engine_newPayloadV1 containing
+        // account/storage state diffs from the native eosio.evm contract. These diffs override
+        // the EVM execution results where the native layer has authoritative state.
+        let block_hash = env.hash;
+        if let Some(extra_fields) = telos_extra_fields_store::take_extra_fields(&block_hash) {
+            debug!(target: "engine::tree", ?block_hash, "Applying Telos state diffs for block");
+            
+            compare_state_diffs(
+                env.evm_env.block_env.number,
+                &mut db,
+                alloy_primitives::map::HashMap::default(),  // revm state diffs (empty — we trust Telos native state)
+                extra_fields.statediffs_account.unwrap_or_default(),
+                extra_fields.statediffs_accountstate.unwrap_or_default(),
+                extra_fields.new_addresses_using_create.unwrap_or_default(),
+                extra_fields.new_addresses_using_openwallet.unwrap_or_default(),
+                false,  // panic_mode = false, log warnings instead
+                true,   // do_storage = true
+            );
+            
+            // Re-merge transitions after state diff application
+            db.merge_transitions(BundleRetention::Reverts);
+        }
 
         let output = BlockExecutionOutput { result, state: db.take_bundle() };
 

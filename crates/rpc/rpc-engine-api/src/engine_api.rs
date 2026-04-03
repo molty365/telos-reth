@@ -2,6 +2,7 @@ use crate::{
     capabilities::EngineCapabilities, metrics::EngineApiMetrics, EngineApiError, EngineApiResult,
 };
 use reth_telos_rpc_engine_api::structs::TelosEngineAPIExtraFields;
+use reth_telos_rpc_engine_api::telos_extra_fields_store;
 use alloy_eips::{
     eip1898::BlockHashOrNumber,
     eip4844::{BlobAndProofV1, BlobAndProofV2},
@@ -158,7 +159,7 @@ where
     pub async fn new_payload_v1_telos(
         &self,
         payload: PayloadT::ExecutionData,
-        _extra_fields: Option<TelosEngineAPIExtraFields>,
+        extra_fields: Option<TelosEngineAPIExtraFields>,
     ) -> EngineApiResult<PayloadStatus> {
         let payload_or_attrs = PayloadOrAttributes::<
             '_,
@@ -170,10 +171,13 @@ where
             .validator
             .validate_version_specific_fields(EngineApiMessageVersion::V1, payload_or_attrs)?;
 
-        // TODO(telos): Wire _extra_fields into execution pipeline via compare_state_diffs.
-        // The state diffs need to be applied AFTER block execution but BEFORE state root
-        // computation, so they must be passed through beacon_consensus.new_payload into the
-        // engine tree's block execution path.
+        // Store Telos extra fields in the side-channel keyed by block hash.
+        // The execution pipeline will retrieve them after EVM execution to apply state diffs.
+        if let Some(fields) = extra_fields {
+            let block_hash = payload.block_hash();
+            trace!(target: "rpc::engine", ?block_hash, "Storing Telos extra fields for block");
+            telos_extra_fields_store::store_extra_fields(block_hash, fields);
+        }
         
         Ok(self.inner.beacon_consensus.new_payload(payload).await?)
     }

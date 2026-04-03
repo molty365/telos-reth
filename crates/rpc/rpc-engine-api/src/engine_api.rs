@@ -1,6 +1,7 @@
 use crate::{
     capabilities::EngineCapabilities, metrics::EngineApiMetrics, EngineApiError, EngineApiResult,
 };
+use reth_telos_rpc_engine_api::structs::TelosEngineAPIExtraFields;
 use alloy_eips::{
     eip1898::BlockHashOrNumber,
     eip4844::{BlobAndProofV1, BlobAndProofV2},
@@ -153,6 +154,30 @@ where
         Ok(self.inner.beacon_consensus.new_payload(payload).await?)
     }
 
+    /// Telos version with extra fields for state diffs
+    pub async fn new_payload_v1_telos(
+        &self,
+        payload: PayloadT::ExecutionData,
+        _extra_fields: Option<TelosEngineAPIExtraFields>,
+    ) -> EngineApiResult<PayloadStatus> {
+        let payload_or_attrs = PayloadOrAttributes::<
+            '_,
+            PayloadT::ExecutionData,
+            PayloadT::PayloadAttributes,
+        >::from_execution_payload(&payload);
+
+        self.inner
+            .validator
+            .validate_version_specific_fields(EngineApiMessageVersion::V1, payload_or_attrs)?;
+
+        // TODO(telos): Wire _extra_fields into execution pipeline via compare_state_diffs.
+        // The state diffs need to be applied AFTER block execution but BEFORE state root
+        // computation, so they must be passed through beacon_consensus.new_payload into the
+        // engine tree's block execution path.
+        
+        Ok(self.inner.beacon_consensus.new_payload(payload).await?)
+    }
+
     /// Metered version of `new_payload_v1`.
     pub async fn new_payload_v1_metered(
         &self,
@@ -160,6 +185,19 @@ where
     ) -> EngineApiResult<PayloadStatus> {
         let start = Instant::now();
         let res = Self::new_payload_v1(self, payload).await;
+        let elapsed = start.elapsed();
+        self.inner.metrics.latency.new_payload_v1.record(elapsed);
+        res
+    }
+
+    /// Metered version of `new_payload_v1` with Telos extra fields.
+    pub async fn new_payload_v1_telos_metered(
+        &self,
+        payload: PayloadT::ExecutionData,
+        extra_fields: Option<TelosEngineAPIExtraFields>,
+    ) -> EngineApiResult<PayloadStatus> {
+        let start = Instant::now();
+        let res = Self::new_payload_v1_telos(self, payload, extra_fields).await;
         let elapsed = start.elapsed();
         self.inner.metrics.latency.new_payload_v1.record(elapsed);
         res
@@ -952,11 +990,24 @@ where
     /// Handler for `engine_newPayloadV1`
     /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
-    async fn new_payload_v1(&self, payload: ExecutionPayloadV1) -> RpcResult<PayloadStatus> {
+    async fn new_payload_v1(
+        &self, 
+        payload: ExecutionPayloadV1,
+        extra_fields: Option<serde_json::Value>
+    ) -> RpcResult<PayloadStatus> {
         trace!(target: "rpc::engine", "Serving engine_newPayloadV1");
+        let telos_extra: Option<TelosEngineAPIExtraFields> = extra_fields.and_then(|v| {
+            match serde_json::from_value(v) {
+                Ok(fields) => Some(fields),
+                Err(e) => {
+                    warn!(target: "rpc::engine", "Failed to deserialize Telos extra fields: {e}");
+                    None
+                }
+            }
+        });
         let payload =
             ExecutionData { payload: payload.into(), sidecar: ExecutionPayloadSidecar::none() };
-        Ok(self.new_payload_v1_metered(payload).await?)
+        Ok(self.new_payload_v1_telos_metered(payload, telos_extra).await?)
     }
 
     /// Handler for `engine_newPayloadV2`

@@ -1,6 +1,8 @@
 use crate::{
     capabilities::EngineCapabilities, metrics::EngineApiMetrics, EngineApiError, EngineApiResult,
 };
+use reth_telos_rpc_engine_api::structs::TelosEngineAPIExtraFields;
+use reth_telos_rpc_engine_api::telos_extra_fields_store;
 use alloy_eips::{
     eip1898::BlockHashOrNumber,
     eip4844::{BlobAndProofV1, BlobAndProofV2},
@@ -18,7 +20,7 @@ use alloy_rpc_types_engine::{
 use async_trait::async_trait;
 use jsonrpsee_core::{server::RpcModule, RpcResult};
 use reth_chainspec::EthereumHardforks;
-use reth_engine_primitives::{ConsensusEngineHandle, EngineApiValidator, EngineTypes};
+use reth_engine_primitives::{ConsensusEngineHandle, EngineApiValidator, EngineTypes, ExecutionPayload};
 use reth_network_api::NetworkInfo;
 use reth_payload_builder::PayloadStore;
 use reth_payload_primitives::{
@@ -153,6 +155,33 @@ where
         Ok(self.inner.beacon_consensus.new_payload(payload).await?)
     }
 
+    /// Telos version with extra fields for state diffs
+    pub async fn new_payload_v1_telos(
+        &self,
+        payload: PayloadT::ExecutionData,
+        extra_fields: Option<TelosEngineAPIExtraFields>,
+    ) -> EngineApiResult<PayloadStatus> {
+        let payload_or_attrs = PayloadOrAttributes::<
+            '_,
+            PayloadT::ExecutionData,
+            PayloadT::PayloadAttributes,
+        >::from_execution_payload(&payload);
+
+        self.inner
+            .validator
+            .validate_version_specific_fields(EngineApiMessageVersion::V1, payload_or_attrs)?;
+
+        // Store Telos extra fields in the side-channel keyed by block hash.
+        // The execution pipeline will retrieve them after EVM execution to apply state diffs.
+        if let Some(fields) = extra_fields {
+            let block_hash = payload.block_hash();
+            trace!(target: "rpc::engine", ?block_hash, "Storing Telos extra fields for block");
+            telos_extra_fields_store::store_extra_fields(block_hash, fields);
+        }
+        
+        Ok(self.inner.beacon_consensus.new_payload(payload).await?)
+    }
+
     /// Metered version of `new_payload_v1`.
     pub async fn new_payload_v1_metered(
         &self,
@@ -160,6 +189,19 @@ where
     ) -> EngineApiResult<PayloadStatus> {
         let start = Instant::now();
         let res = Self::new_payload_v1(self, payload).await;
+        let elapsed = start.elapsed();
+        self.inner.metrics.latency.new_payload_v1.record(elapsed);
+        res
+    }
+
+    /// Metered version of `new_payload_v1` with Telos extra fields.
+    pub async fn new_payload_v1_telos_metered(
+        &self,
+        payload: PayloadT::ExecutionData,
+        extra_fields: Option<TelosEngineAPIExtraFields>,
+    ) -> EngineApiResult<PayloadStatus> {
+        let start = Instant::now();
+        let res = Self::new_payload_v1_telos(self, payload, extra_fields).await;
         let elapsed = start.elapsed();
         self.inner.metrics.latency.new_payload_v1.record(elapsed);
         res
@@ -952,11 +994,24 @@ where
     /// Handler for `engine_newPayloadV1`
     /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
-    async fn new_payload_v1(&self, payload: ExecutionPayloadV1) -> RpcResult<PayloadStatus> {
+    async fn new_payload_v1(
+        &self, 
+        payload: ExecutionPayloadV1,
+        extra_fields: Option<serde_json::Value>
+    ) -> RpcResult<PayloadStatus> {
         trace!(target: "rpc::engine", "Serving engine_newPayloadV1");
+        let telos_extra: Option<TelosEngineAPIExtraFields> = extra_fields.and_then(|v| {
+            match serde_json::from_value(v) {
+                Ok(fields) => Some(fields),
+                Err(e) => {
+                    warn!(target: "rpc::engine", "Failed to deserialize Telos extra fields: {e}");
+                    None
+                }
+            }
+        });
         let payload =
             ExecutionData { payload: payload.into(), sidecar: ExecutionPayloadSidecar::none() };
-        Ok(self.new_payload_v1_metered(payload).await?)
+        Ok(self.new_payload_v1_telos_metered(payload, telos_extra).await?)
     }
 
     /// Handler for `engine_newPayloadV2`

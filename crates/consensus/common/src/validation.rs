@@ -278,7 +278,10 @@ pub fn validate_against_parent_hash_number<H: BlockHeader>(
     };
 
     // Parent number is consistent.
-    if parent_number != header.number() {
+    // Telos: skip parent number check when trust_consensus is enabled.
+    // The Telos EVM starts at block 137430501 (not block 1), so genesis block 0
+    // is followed by block 137430501 which would normally fail this check.
+    if parent_number != header.number() && !reth_telos_primitives_traits::trust_consensus() {
         return Err(ConsensusError::ParentBlockNumberMismatch {
             parent_block_number: parent.number(),
             block_number: header.number(),

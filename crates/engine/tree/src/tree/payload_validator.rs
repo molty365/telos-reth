@@ -769,10 +769,11 @@ where
         // the EVM execution results where the native layer has authoritative state.
         let block_hash = env.hash;
         if let Some(extra_fields) = telos_extra_fields_store::take_extra_fields(&block_hash) {
-            debug!(target: "engine::tree", ?block_hash, "Applying Telos state diffs for block");
+            let block_number = input.num_hash().number;
+            debug!(target: "engine::tree", ?block_hash, block_number, "Applying Telos state diffs for block");
             
             compare_state_diffs(
-                env.evm_env.block_env.number,
+                block_number,
                 &mut db,
                 alloy_primitives::map::HashMap::default(),  // revm state diffs (empty — we trust Telos native state)
                 extra_fields.statediffs_account.unwrap_or_default(),

@@ -111,8 +111,10 @@ latest_blocks_in_db_num = 1800
 **Key config values explained:**
 - `evm_start_block = 1`: First EVM block number. SHIP starts at native block `1 + 57 = 58`.
   This produces blocks 1, 2, 3... matching the production chain.
-- `evm_deploy_block = 136393755`: Native block where eosio.evm was deployed. Blocks before
-  this are empty (no EVM transactions). The deploy state is injected at this block.
+- `evm_deploy_block = 137430500`: Native block where the testnet eosio.evm **state dump is injected**.
+  Blocks before this are empty (no EVM transactions). **Important:** `136393755` is not the correct
+  deploy/injection point for the genesis state dump path and will cause the consensus client to panic
+  at the transition with: `State dump doesn't match configured deploy block`.
 - `prev_hash`: Must be the genesis block hash (`0xb25034...` for testnet). This ensures
   block 1's `parentHash` matches production, producing identical block hashes.
 - `block_delta`: Hardcoded per chain (57 for testnet, 36 for mainnet). Maps native blocks
@@ -142,6 +144,34 @@ Use `--chain tevmmainnet` for reth. Mainnet `block_delta` = 36.
 If you start from a snapshot/backup instead of genesis, use the backup's finalized block
 as `evm_start_block` and its hash as `prev_hash`. The resulting chain will be internally
 consistent but hashes will NOT match other nodes that started from genesis.
+
+### Deploy Block Gotcha (Important)
+
+During the testnet genesis sync validation, we confirmed the chain can hash-match production from
+`evm_start_block = 1` all the way up to the deploy transition. However, the sync will fail exactly at
+that boundary if `evm_deploy_block` is wrong.
+
+**Observed failure:**
+```text
+assertion `left == right` failed: State dump doesn't match configured deploy block
+  left: 137430500
+ right: 136393755
+```
+
+**Correct testnet values:**
+```toml
+evm_start_block = 1
+evm_deploy_block = 137430500
+prev_hash = "0xb25034033c9ca7a40e879ddcc29cf69071a22df06688b5fe8cc2d68b4e0528f9"
+```
+
+If you already synced to the deploy boundary with the wrong block configured, you do **not** need to
+wipe reth. Just:
+1. Stop the consensus client
+2. Fix `evm_deploy_block` in `config.toml`
+3. Restart the consensus client
+
+Reth can continue from the existing datadir after the config correction.
 
 ### Sync Performance
 
